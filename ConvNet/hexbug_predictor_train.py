@@ -16,22 +16,24 @@ print(device)
 
 
 #model = HexbugPredictor().to(device)
-batch_size = 32
-learning_rate = 0.01
+batch_size = 64
+learning_rate = 0.001
 
 
 transform = transforms.Compose([
     transforms.ToPILImage(),
     transforms.Resize((512, 512)),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    transforms.RandomHorizontalFlip(0.15),
+    transforms.RandomVerticalFlip(0.15)
 ])
 dataset = VideoPredictingDataset("../training", "../training", transform=transform)
-dataset = Subset(dataset, range(200))
+#dataset = Subset(dataset, range(200))
 train_size = int(0.8 * len(dataset))
 val_size = len(dataset) - train_size
 
 
-k_folds = 5
+k_folds = 4
 indices = list(range(len(dataset)))
 kf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
 
@@ -86,7 +88,7 @@ def test_loop(dataloader, model, loss_fn):
 
 fold_training_losses = []
 fold_validation_losses = []
-epochs = 2
+epochs = 5
 
 
 for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
@@ -114,6 +116,8 @@ for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
 
     fold_training_losses.append(fold_train_loss)
     fold_validation_losses.append(fold_val_loss)
+
+    torch.save(model.state_dict(), f'models/hexbug_predictor_fold{fold}_v{epochs}.pth')
 
 print("Done!")
 
