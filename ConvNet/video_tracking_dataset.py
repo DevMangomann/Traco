@@ -32,6 +32,11 @@ class VideoTrackingDataset(Dataset):
                         frame_labels = grouped.get_group(frame_idx)[["x", "y"]].values  # (n_objects, 2)
                         self.data.append((video_path, frame_idx, frame_labels))
 
+        self.video_to_indices = {}  # z.B. {'video1.mp4': [0, 1, 2, 3], ...}
+        for idx, (video_path, _, _) in enumerate(self.data):
+            self.video_to_indices.setdefault(video_path, []).append(idx)
+        self.video_paths = list(self.video_to_indices.keys())
+
     def __len__(self):
         return len(self.data)
 
@@ -51,3 +56,25 @@ class VideoTrackingDataset(Dataset):
         num_bugs = torch.tensor(positions.shape[0])
 
         return frame, positions, num_bugs
+
+
+from torch.utils.data import Sampler
+import random
+
+class VideoBatchSampler(Sampler):
+    def __init__(self, dataset, shuffle=True):
+        super().__init__()
+        self.dataset = dataset
+        self.video_paths = dataset.video_paths
+        self.shuffle = shuffle
+
+    def __iter__(self):
+        indices = list(self.video_paths)
+        if self.shuffle:
+            random.shuffle(indices)
+        for video_path in indices:
+            yield self.dataset.video_to_indices[video_path]
+
+    def __len__(self):
+        return len(self.video_paths)
+

@@ -9,22 +9,23 @@ class HexbugPredictor(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(3, 16, 9, padding=4),     # 512 * 512 images
+            nn.Conv2d(3, 16, 7, padding=3),     # 1000 * 1000 images
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, 7, padding=3),    # 256 * 256 images
+            nn.Conv2d(16, 32, 7, padding=3),    # 500 * 500 images
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(32, 64, 5, padding=2),    # 128 * 128 images
+            nn.Conv2d(32, 64, 5, padding=2),    # 250 * 250 images
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(64, 128, 3, padding=1),   # 64 * 64 images
+            nn.Conv2d(64, 128, 5, padding=2),   # 125 * 125 images
             nn.ReLU(),
             nn.MaxPool2d(2),
         )
         self.fc = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1,1)),
             nn.Flatten(),
-            nn.Linear(128 * 32 * 32, 64),
+            nn.Linear(128 * 1 * 1, 64),
             nn.ReLU(),
             nn.Linear(64, 1),  # Output number of hexbugs
             nn.ReLU()

@@ -7,39 +7,35 @@ from torchvision import transforms
 from torch.utils.data import Subset
 from sklearn.model_selection import KFold
 
-from ConvNet.hexbug_tracker import HexbugTracker
-from ConvNet.video_tracking_dataset import VideoTrackingDataset
+from traco.ConvNet.video_tracking_dataset import VideoTrackingDataset
 
+from traco.ConvNet.hexbug_predictor import HexbugPredictor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-
-#model = HexbugTracker().to(device)
+# model = HexbugTracker().to(device)
 batch_size = 64
 learning_rate = 0.01
 
-
 transform = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((512, 512)),
     transforms.ToTensor(),
     transforms.RandomHorizontalFlip(0.15),
     transforms.RandomVerticalFlip(0.15)
 ])
 dataset = VideoTrackingDataset("../training", "../training", transform=transform)
-#dataset = Subset(dataset, range(200))
+dataset = Subset(dataset, range(200))
 train_size = int(0.8 * len(dataset))
 val_size = len(dataset) - train_size
 
-
-k_folds = 4
+k_folds = 2
 indices = list(range(len(dataset)))
 kf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
 
-
 loss_fn = nn.MSELoss()
-#optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+
+
+# optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
@@ -47,6 +43,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
     model.train()
     for batch, (frame, positions, num_bugs) in enumerate(dataloader):
+        print(batch)
         frame, positions, num_bugs = frame.to(device), positions.to(device), num_bugs.to(device)
         pred = model(num_bugs, frame).squeeze()
         loss = loss_fn(pred, positions)
@@ -58,7 +55,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.zero_grad()
 
         if batch % 1 == 0:
-            loss, current = loss.item(), batch * batch_size + len(X)
+            loss, current = loss.item(), batch * batch_size
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
     return training_loss
@@ -90,7 +87,6 @@ fold_training_losses = []
 fold_validation_losses = []
 epochs = 5
 
-
 for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
     print(f"\n=== Fold {fold + 1} / {k_folds} ===")
 
@@ -120,7 +116,6 @@ for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
     torch.save(model.state_dict(), f'models/hexbug_predictor_fold{fold}_v{epochs}.pth')
 
 print("Done!")
-
 
 avg_train = np.mean(fold_training_losses, axis=0)
 avg_val = np.mean(fold_validation_losses, axis=0)

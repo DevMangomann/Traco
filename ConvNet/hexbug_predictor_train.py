@@ -13,30 +13,28 @@ from traco.ConvNet.video_predicting_dataset import VideoPredictingDataset
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-#model = HexbugPredictor().to(device)
+# model = HexbugPredictor().to(device)
 batch_size = 64
 learning_rate = 0.001
 
 transform = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((512, 512)),
     transforms.ToTensor(),
     transforms.RandomHorizontalFlip(0.15),
     transforms.RandomVerticalFlip(0.15)
 ])
 dataset = VideoPredictingDataset("../training", "../training", transform=transform)
-#dataset = Subset(dataset, range(200))
+dataset = Subset(dataset, range(200))
 train_size = int(0.8 * len(dataset))
 val_size = len(dataset) - train_size
 
-k_folds = 4
+k_folds = 2
 indices = list(range(len(dataset)))
 kf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
 
 loss_fn = nn.MSELoss()
 
 
-#optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+# optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
@@ -126,4 +124,4 @@ plt.ylabel("Loss")
 plt.title("Loss per Epoch")
 plt.legend()
 plt.grid(True)
-plt.savefig("./plots/train_cross_validation_loss.png")
+plt.savefig("./plots/train_validation_loss.png")
