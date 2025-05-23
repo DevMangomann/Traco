@@ -7,18 +7,15 @@ from torchvision import transforms
 from torch.utils.data import Subset
 from sklearn.model_selection import KFold
 
-from ConvNet.hexbug_predictor import HexbugPredictor
-from ConvNet.video_predicting_dataset import VideoPredictingDataset
-
+from traco.ConvNet.hexbug_predictor import HexbugPredictor
+from traco.ConvNet.video_predicting_dataset import VideoPredictingDataset
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-
 #model = HexbugPredictor().to(device)
 batch_size = 64
 learning_rate = 0.001
-
 
 transform = transforms.Compose([
     transforms.ToPILImage(),
@@ -32,13 +29,13 @@ dataset = VideoPredictingDataset("../training", "../training", transform=transfo
 train_size = int(0.8 * len(dataset))
 val_size = len(dataset) - train_size
 
-
 k_folds = 4
 indices = list(range(len(dataset)))
 kf = KFold(n_splits=k_folds, shuffle=True, random_state=42)
 
-
 loss_fn = nn.MSELoss()
+
+
 #optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 
@@ -90,7 +87,6 @@ fold_training_losses = []
 fold_validation_losses = []
 epochs = 5
 
-
 for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
     print(f"\n=== Fold {fold + 1} / {k_folds} ===")
 
@@ -120,7 +116,6 @@ for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
     torch.save(model.state_dict(), f'models/hexbug_predictor_fold{fold}_v{epochs}.pth')
 
 print("Done!")
-
 
 avg_train = np.mean(fold_training_losses, axis=0)
 avg_val = np.mean(fold_validation_losses, axis=0)
