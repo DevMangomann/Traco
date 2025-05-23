@@ -23,7 +23,7 @@ class HexbugTracker(nn.Module):
             nn.MaxPool2d(2),
         )
         self.fc = nn.Sequential(
-            nn.AdaptiveAvgPool2d((8,8)),
+            nn.AdaptiveAvgPool2d((8, 8)),
             nn.Linear(128 * 8 * 8 + 1, 128),
             nn.ReLU(),
             nn.Linear(128, 64),
