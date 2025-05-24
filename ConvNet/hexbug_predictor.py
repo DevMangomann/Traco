@@ -1,8 +1,5 @@
-import os
-import torch
+import torch.nn.init as init
 from torch import nn
-from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
 
 
 class HexbugPredictor(nn.Module):
@@ -23,7 +20,7 @@ class HexbugPredictor(nn.Module):
             nn.MaxPool2d(2),
         )
         self.fc = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1,1)),
+            nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
             nn.Linear(128 * 1 * 1, 64),
             nn.ReLU(),
@@ -33,3 +30,10 @@ class HexbugPredictor(nn.Module):
 
     def forward(self, x):
         return self.fc(self.conv(x))
+
+
+def init_weights_he(m):
+    if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+        init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+        if m.bias is not None:
+            nn.init.constant_(m.bias, 0)

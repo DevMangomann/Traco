@@ -9,6 +9,7 @@ from torchvision import transforms
 
 from traco.ConvNet.hexbug_predictor import HexbugPredictor
 from traco.ConvNet.video_predicting_dataset import VideoPredictingDataset
+from traco.ConvNet.hexbug_predictor import init_weights_he
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -81,6 +82,7 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_sav
         fold_val_loss = [0.0] * epochs
         for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
             model = HexbugPredictor().to(device)
+            model.apply(init_weights_he)
 
             print(f"\n=== Fold {fold + 1} / {kfolds} ===")
 
@@ -133,6 +135,7 @@ def print_losscurve(training_losses, validation_losses, kfolds, save_path):
 
 def main():
     model = HexbugPredictor().to(device)
+    model.apply(init_weights_he)
     learning_rate = 0.01
     loss_fn = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
@@ -149,10 +152,10 @@ def main():
     dataset = Subset(dataset, range(1000))
 
     kfolds = 1
-    epochs = 10
+    epochs = 1
 
     model_save_path = f"./models/hexbug_predictor_folds{kfolds}_v{epochs}.pth"
-    loss_save_path = f"./plots/training_loss_folds{kfolds}_v{epochs}.png"
+    loss_save_path = f"./plots/predicting_loss_folds{kfolds}_v{epochs}.png"
 
     Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_save_path, loss_save_path)
 
