@@ -6,11 +6,9 @@ from sklearn.model_selection import KFold
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
-from torchvision import transforms
-import torch.nn.functional as F
 
+import augmentations
 from traco.ConvNet.hexbug_tracker import HexbugTracker
-from traco.ConvNet.hexbug_tracker import init_weights_he
 from traco.ConvNet.video_tracking_dataset import VideoTrackingDataset
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,9 +37,6 @@ def match_predictions_to_targets(pred, target):
         print("Pred:", pred)
         print("Target:", target)
         raise ValueError("Ungültige cost_matrix")
-
-    # Berechne paarweise euklidische Distanzen
-    cost_matrix = torch.cdist(pred, target, p=2)
 
     # Hungarian Matching
     row_ind, col_ind = linear_sum_assignment(cost_matrix.cpu().detach().numpy())
@@ -99,20 +94,21 @@ def test_loop(dataloader, model, loss_fn):
             batch_loss /= frame.shape[0]
             test_loss.append(batch_loss.item())
 
-    print(f"Test Error: \n Avg loss: {batch_loss.item():.6f} \n")
     return test_loss
 
 
-def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_save_path, loss_save_path):
+def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path):
     if kfolds == 1:
         train_size = int(0.8 * len(dataset))
         train_set = Subset(dataset, range(train_size))
         val_set = Subset(dataset, range(train_size, len(dataset)))
-        train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-        val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+        train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
+                                      collate_fn=augmentations.collate_padding)
+        val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False,
+                                    collate_fn=augmentations.collate_padding)
 
         epoch_training_loss, epoch_validation_loss = epoch_training(epochs, train_dataloader, val_dataloader, model,
-                                                                    loss_fn, optimizer)
+                                                                    loss_fn, optimizer, scheduler)
         print_losscurve(epoch_training_loss, epoch_validation_loss, kfolds, loss_save_path)
         torch.save(model.state_dict(), model_save_path)
 
@@ -124,7 +120,7 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_sav
         fold_val_loss = [0.0] * epochs
         for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
             model = HexbugTracker().to(device)
-            model.apply(init_weights_he)
+            # model.apply(init_weights_he)
 
             print(f"\n=== Fold {fold + 1} / {kfolds} ===")
 
@@ -134,7 +130,7 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_sav
             val_dataloader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
 
             epoch_training_loss, epoch_validation_loss = epoch_training(epochs, train_dataloader, val_dataloader, model,
-                                                                        loss_fn, optimizer)
+                                                                        loss_fn, optimizer, scheduler)
             fold_train_loss[:] += epoch_training_loss[:]
             fold_val_loss[:] += epoch_validation_loss[:]
 
@@ -146,7 +142,7 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_sav
         torch.save(model.state_dict(), model_save_path)
 
 
-def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, optimizer):
+def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, optimizer, scheduler):
     epoch_training_loss = []
     epoch_validation_loss = []
 
@@ -155,13 +151,19 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
 
         training_loss = train_loop(train_dataloader, model, loss_fn, optimizer)
         validation_loss = test_loop(val_dataloader, model, loss_fn)
-
         avg_training_loss = sum(training_loss) / len(training_loss)
         avg_validation_loss = sum(validation_loss) / len(validation_loss)
+
+        scheduler.step(avg_validation_loss)
+        print(scheduler.get_last_lr())
+
+        print(f"Train Error: \n Avg Train loss: {avg_training_loss:.6f} \n")
+        print(f"Test Error: \n Avg loss: {avg_validation_loss:.6f} \n")
         epoch_training_loss.append(avg_training_loss)
         epoch_validation_loss.append(avg_validation_loss)
 
-        torch.save(model.state_dict(), f"models/hexbug_tracker_v{t}")
+        if t % 5 == 0:
+            torch.save(model.state_dict(), f"models/hexbug_tracker_v{t}")
 
     return epoch_training_loss, epoch_validation_loss
 
@@ -177,58 +179,30 @@ def print_losscurve(training_losses, validation_losses, kfolds, save_path):
     plt.savefig(save_path)
 
 
-def collate_fn(batch):
-    images, positions_list, num_bugs = zip(*batch)
-
-    # Alle Bilder haben Form [C, H, W], wir suchen das maximale H und W im Batch
-    max_h = max(img.shape[1] for img in images)
-    max_w = max(img.shape[2] for img in images)
-
-    padded_images = []
-    norm_positions_list = []
-
-    for img, positions in zip(images, positions_list):
-        c, h, w = img.shape
-        pad_h = max_h - h
-        pad_w = max_w - w
-        # Pad in Format (left, right, top, bottom)
-        padded = F.pad(img, (0, pad_w, 0, pad_h), mode='constant', value=0)
-        padded_images.append(padded)
-
-        norm_pos = positions.clone()
-        norm_pos[:, 0] = (norm_pos[:, 0] / (w + pad_w)) * 2 - 1
-        norm_pos[:, 1] = (norm_pos[:, 1] / (h + pad_h)) * 2 - 1
-        norm_positions_list.append(norm_pos)
-
-    padded_images = torch.stack(padded_images)
-    bug_counts = torch.tensor(num_bugs, dtype=torch.float32)
-
-    return padded_images, norm_positions_list, bug_counts
-
-
 def main():
+    torch.cuda.empty_cache()
     model = HexbugTracker().to(device)
-    model.apply(init_weights_he)
-    learning_rate = 0.01
+    # model.apply(init_weights_alexnet)
+    learning_rate = 0.001
     loss_fn = nn.MSELoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode='min',
+        factor=0.1,
+        patience=5,
+    )
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.RandomHorizontalFlip(0.15),
-        transforms.RandomVerticalFlip(0.15)
-    ])
-
-    dataset = VideoTrackingDataset("../training", "../training", transform=transform)
-    #dataset = Subset(dataset, range(200))
+    dataset = VideoTrackingDataset("../training", "../training")
+    #dataset = Subset(dataset, range(1000))
 
     kfolds = 1
-    epochs = 20
+    epochs = 50
 
     model_save_path = f"./models/hexbug_tracker_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/tracking_loss_folds{kfolds}_v{epochs}.png"
 
-    Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_save_path, loss_save_path)
+    Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path)
 
 
 if __name__ == '__main__':

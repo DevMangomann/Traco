@@ -6,15 +6,15 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
 from torchvision import transforms
+import torch.optim.lr_scheduler
 
-from traco.ConvNet.hexbug_predictor import HexbugPredictor
+from traco.ConvNet.hexbug_predictor import HexbugPredictor, init_weights_alexnet
 from traco.ConvNet.video_predicting_dataset import VideoPredictingDataset
-from traco.ConvNet.hexbug_predictor import init_weights_he
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-batch_size = 64
+batch_size = 32
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
@@ -32,7 +32,8 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 1 == 0:
+        if batch % 2 == 0:
+            print(f"Output: {pred[0]}  Label: {y[0]}")
             loss, current = loss.item(), batch * batch_size + len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
@@ -57,11 +58,12 @@ def test_loop(dataloader, model, loss_fn):
             correct += (pred_rounded == y).sum().item()  # z. B. 3 == 3
 
     correct /= size
-    print(f"Test Error: \n Accuracy: {100 * correct:.1f}%, Avg loss: {loss.item():.6f} \n")
+    avg_test = sum(test_loss) / len(test_loss)
+    print(f"Test Error: \n Accuracy: {100 * correct:.1f}%, Avg loss: {avg_test:.6f} \n")
     return test_loss
 
 
-def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_save_path, loss_save_path):
+def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path):
     if kfolds == 1:
         train_size = int(0.8 * len(dataset))
         train_set = Subset(dataset, range(train_size))
@@ -70,7 +72,7 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_sav
         val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
 
         epoch_training_loss, epoch_validation_loss = epoch_training(epochs, train_dataloader, val_dataloader, model,
-                                                                    loss_fn, optimizer)
+                                                                    loss_fn, optimizer, scheduler)
         print_losscurve(epoch_training_loss, epoch_validation_loss, kfolds, loss_save_path)
         torch.save(model.state_dict(), model_save_path)
 
@@ -82,7 +84,7 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_sav
         fold_val_loss = [0.0] * epochs
         for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
             model = HexbugPredictor().to(device)
-            model.apply(init_weights_he)
+            #model.apply(init_weights_he)
 
             print(f"\n=== Fold {fold + 1} / {kfolds} ===")
 
@@ -92,7 +94,7 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_sav
             val_dataloader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
 
             epoch_training_loss, epoch_validation_loss = epoch_training(epochs, train_dataloader, val_dataloader, model,
-                                                                        loss_fn, optimizer)
+                                                                        loss_fn, optimizer, scheduler)
             fold_train_loss[:] += epoch_training_loss[:]
             fold_val_loss[:] += epoch_validation_loss[:]
 
@@ -104,7 +106,7 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_sav
         torch.save(model.state_dict(), model_save_path)
 
 
-def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, optimizer):
+def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, optimizer, scheduler):
     epoch_training_loss = []
     epoch_validation_loss = []
 
@@ -113,11 +115,17 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
 
         training_loss = train_loop(train_dataloader, model, loss_fn, optimizer)
         validation_loss = test_loop(val_dataloader, model, loss_fn)
-
         avg_training_loss = sum(training_loss) / len(training_loss)
         avg_validation_loss = sum(validation_loss) / len(validation_loss)
+
+        scheduler.step(avg_validation_loss)
+        print(f"Train Error: \n Avg Train loss: {avg_training_loss:.6f} \n")
+        print(f"last learning rate: {scheduler.get_last_lr()} \n")
+
         epoch_training_loss.append(avg_training_loss)
         epoch_validation_loss.append(avg_validation_loss)
+
+        torch.save(model.state_dict(), f"models/hexbug_predictor_v{t}")
 
     return epoch_training_loss, epoch_validation_loss
 
@@ -134,30 +142,38 @@ def print_losscurve(training_losses, validation_losses, kfolds, save_path):
 
 
 def main():
+    torch.cuda.empty_cache()
     model = HexbugPredictor().to(device)
-    model.apply(init_weights_he)
-    learning_rate = 0.01
+    #model.apply(init_weights_alexnet)
+    learning_rate = 0.001
     loss_fn = nn.MSELoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode='min',
+        factor=0.1,
+        patience=5,
+        threshold=0.01,
+    )
 
     transform = transforms.Compose([
         transforms.ToPILImage(),
         transforms.Resize((512, 512)),
         transforms.ToTensor(),
-        transforms.RandomHorizontalFlip(0.15),
-        transforms.RandomVerticalFlip(0.15)
+        transforms.RandomHorizontalFlip(0.5),
+        transforms.RandomVerticalFlip(0.5)
     ])
 
     dataset = VideoPredictingDataset("../training", "../training", transform=transform)
     dataset = Subset(dataset, range(1000))
 
     kfolds = 1
-    epochs = 1
+    epochs = 10
 
     model_save_path = f"./models/hexbug_predictor_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/predicting_loss_folds{kfolds}_v{epochs}.png"
 
-    Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, model_save_path, loss_save_path)
+    Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path)
 
 
 if __name__ == '__main__':

@@ -9,11 +9,10 @@ from torchvision.io import read_image
 
 
 class VideoPredictingDataset(Dataset):
-    def __init__(self, lables_dir, video_dir, transform=None, target_transform=None):
+    def __init__(self, lables_dir, video_dir, transform=None):
         self.lables_dir = lables_dir
         self.video_dir = video_dir
         self.transform = transform
-        self.target_transform = target_transform
 
         self.data = []
         for video_file in os.listdir(self.video_dir):
@@ -46,7 +45,5 @@ class VideoPredictingDataset(Dataset):
 
         if self.transform:
             frame = self.transform(frame)
-        if self.target_transform:
-            label = self.target_transform(label)
 
         return frame, torch.tensor(label, dtype=torch.float32)

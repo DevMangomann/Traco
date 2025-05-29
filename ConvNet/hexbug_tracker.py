@@ -11,25 +11,26 @@ class HexbugTracker(nn.Module):
         super().__init__()
         self.max_bugs = max_bugs
         self.conv = nn.Sequential(
-            nn.Conv2d(3, 16, 7, padding=3),
+            nn.Conv2d(3, 64, 11, padding=5, stride=2),
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, 7, padding=3),
+            nn.Conv2d(64, 256, 5, padding=2, stride=2),
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(32, 64, 5, padding=2),
+            nn.Conv2d(256, 256, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(64, 128, 5, padding=2),
+            nn.Conv2d(256, 256, 3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.AdaptiveAvgPool2d((8, 8))
+            nn.Conv2d(256, 256, 3, padding=1),
+            nn.AdaptiveAvgPool2d((1, 1)),
         )
         self.fc = nn.Sequential(
-            nn.Linear(128 * 8 * 8 + 1, 128),
+            nn.Linear(256 + 1, 128),
             nn.ReLU(),
             nn.Linear(128, 64),
             nn.ReLU(),
+            nn.Dropout(0.5),
             nn.Linear(64, 2 * max_bugs),
             nn.Tanh()
         )
@@ -44,8 +45,8 @@ class HexbugTracker(nn.Module):
         return x
 
 
-def init_weights_he(m):
+def init_weights_alexnet(m):
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-        init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+        init.normal_(m.weight, mean=0.0, std=0.01)
         if m.bias is not None:
-            nn.init.constant_(m.bias, 0)
+            init.constant_(m.bias, 1)

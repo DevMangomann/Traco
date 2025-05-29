@@ -1,13 +1,18 @@
 import os
+from random import random
 
 import cv2
+import matplotlib.pyplot
 import pandas as pd
 import torch
+import torchvision.transforms as transforms
 from torch.utils.data import Dataset
+
+import augmentations
 
 
 class VideoTrackingDataset(Dataset):
-    def __init__(self, lables_dir, video_dir, transform=None):
+    def __init__(self, lables_dir, video_dir, transform=augmentations.JointRandomFlip(0.33, 0.33)):
         self.lables_dir = lables_dir
         self.video_dir = video_dir
         self.transform = transform
@@ -41,11 +46,19 @@ class VideoTrackingDataset(Dataset):
         success, frame = cap.read()
         cap.release()
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = transforms.ToTensor()(frame)
+        h, w = frame.shape[1:3]
+        frame = transforms.Resize((512, 512))(frame)
+        positions = torch.tensor(frame_labels, dtype=torch.float32)
+        positions[:, 0] = positions[:, 0] / w * 2 - 1
+        positions[:, 1] = positions[:, 1] / h * 2 - 1
 
         if self.transform:
-            frame = self.transform(frame)
+            frame, positions = self.transform(frame, positions)
+            if random() < 0.33:
+                jitter = transforms.ColorJitter(brightness=.5, hue=.3)
+                frame = jitter(frame)
 
-        positions = torch.tensor(frame_labels, dtype=torch.float32)  # (n_objects, 2)
         num_bugs = torch.tensor(positions.shape[0])
 
         return frame, positions, num_bugs
