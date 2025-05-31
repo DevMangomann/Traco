@@ -6,6 +6,7 @@ from sklearn.model_selection import KFold
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
+from torchvision.transforms import transforms
 
 import augmentations
 from traco.ConvNet.hexbug_tracker import HexbugTracker
@@ -102,10 +103,8 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler
         train_size = int(0.8 * len(dataset))
         train_set = Subset(dataset, range(train_size))
         val_set = Subset(dataset, range(train_size, len(dataset)))
-        train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
-                                      collate_fn=augmentations.collate_padding)
-        val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False,
-                                    collate_fn=augmentations.collate_padding)
+        train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, collate_fn=augmentations.collate_padding)
+        val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False, collate_fn=augmentations.collate_padding)
 
         epoch_training_loss, epoch_validation_loss = epoch_training(epochs, train_dataloader, val_dataloader, model,
                                                                     loss_fn, optimizer, scheduler)
@@ -193,11 +192,15 @@ def main():
         patience=5,
     )
 
-    dataset = VideoTrackingDataset("../training", "../training")
-    #dataset = Subset(dataset, range(1000))
+    transform = augmentations.JointCompose([augmentations.ResizeImagePositions((512, 512)),
+                                            augmentations.JointRandomFlip(0.5, 0.5),
+                                            augmentations.JointWrapper(transforms.ToTensor())])
+
+    dataset = VideoTrackingDataset("../training", "../training", transform=transform)
+    dataset = Subset(dataset, range(1000))
 
     kfolds = 1
-    epochs = 50
+    epochs = 20
 
     model_save_path = f"./models/hexbug_tracker_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/tracking_loss_folds{kfolds}_v{epochs}.png"

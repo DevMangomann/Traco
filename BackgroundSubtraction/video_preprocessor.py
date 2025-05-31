@@ -11,3 +11,4 @@ for video in videos:
         background = background_generator.getBackground(video_path, 3)
         output_path = f"../Background_training/{video}"
         background_subtraction.background_subtraction(background, video_path, output_path)
+        print(output_path + " has been saved")
