@@ -14,7 +14,7 @@ from traco.ConvNet.video_predicting_dataset import VideoPredictingDataset
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-batch_size = 32
+batch_size = 64
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
@@ -32,7 +32,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 2 == 0:
+        if batch % 100 == 0:
             print(f"Output: {pred[0]}  Label: {y[0]}")
             loss, current = loss.item(), batch * batch_size + len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
@@ -152,7 +152,7 @@ def main():
         optimizer,
         mode='min',
         factor=0.1,
-        patience=5,
+        patience=3,
         threshold=0.01,
     )
 
@@ -165,10 +165,10 @@ def main():
     ])
 
     dataset = VideoPredictingDataset("../training", "../training", transform=transform)
-    dataset = Subset(dataset, range(1000))
+    #dataset = Subset(dataset, range(1000))
 
     kfolds = 1
-    epochs = 10
+    epochs = 20
 
     model_save_path = f"./models/hexbug_predictor_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/predicting_loss_folds{kfolds}_v{epochs}.png"
