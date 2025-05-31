@@ -1,9 +1,6 @@
-import os
 import torch
-from torch import nn
-from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
 import torch.nn.init as init
+from torch import nn
 
 
 class HexbugTracker(nn.Module):
@@ -11,27 +8,26 @@ class HexbugTracker(nn.Module):
         super().__init__()
         self.max_bugs = max_bugs
         self.conv = nn.Sequential(
-            nn.Conv2d(3, 64, 11, padding=5, stride=2),
+            nn.Conv2d(3, 96, 11, padding=5, stride=2),
             nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(64, 256, 5, padding=2, stride=2),
+            nn.MaxPool2d((2, 2)),
+            nn.Conv2d(96, 128, 5, padding=2, stride=2),
             nn.ReLU(),
-            nn.MaxPool2d(2),
+            nn.BatchNorm2d(128),
+            nn.MaxPool2d((2, 2)),
+            nn.Conv2d(128, 256, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d((2, 2)),
             nn.Conv2d(256, 256, 3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2),
             nn.Conv2d(256, 256, 3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, 3, padding=1),
-            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.AdaptiveAvgPool2d((2, 2)),
         )
         self.fc = nn.Sequential(
-            nn.Linear(256 + 1, 128),
-            nn.ReLU(),
-            nn.Linear(128, 64),
+            nn.Linear(256 * 2 * 2 + 1, 256),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(64, 2 * max_bugs),
+            nn.Linear(256, 2 * max_bugs),
             nn.Tanh()
         )
 

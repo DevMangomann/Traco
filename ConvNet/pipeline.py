@@ -11,11 +11,11 @@ from traco.ConvNet.hexbug_tracker import HexbugTracker
 
 # Lade das trainierte Modell
 predictor_model = HexbugPredictor()
-predictor_model.load_state_dict(torch.load("models/hexbug_predictor_first_version.pth", weights_only=True))
+predictor_model.load_state_dict(torch.load("models/hexbug_predictor_folds1_v20.pth", weights_only=True))
 predictor_model.eval()  # Setze das Modell in den Evaluierungsmodus
 
 tracking_model = HexbugTracker()
-tracking_model.load_state_dict(torch.load("models/hexbug_tracker_first_version.pth", weights_only=True))
+tracking_model.load_state_dict(torch.load("models/hexbug_tracker_folds1_v20.pth", weights_only=True))
 tracking_model.eval()
 
 # Definiere die Transformationen für die Eingabebilder
@@ -27,7 +27,7 @@ predict_transform = transforms.Compose([
 tracking_transform = transforms.Compose([transforms.ToTensor()])
 
 # Pfad zum Video
-video_path = "../training/training07.mp4"
+video_path = "../training/training02.mp4"
 
 # Lade das Video
 cap = cv2.VideoCapture(video_path)
@@ -59,7 +59,7 @@ while cap.isOpened():
     with torch.no_grad():
         #num_bugs = predictor_model(predict_image)
         #num_bugs = torch.round(num_bugs)
-        num_bugs = torch.tensor([2])
+        num_bugs = torch.tensor([1])
         positions = tracking_model(num_bugs, tracking_image)
 
     # Extrahiere die x- und y-Koordinaten aus der Vorhersage

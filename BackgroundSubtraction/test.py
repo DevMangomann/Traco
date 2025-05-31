@@ -1,19 +1,22 @@
+import matplotlib
 import torch
 from matplotlib import pyplot as plt
 from torchvision.transforms import transforms
 
 from traco.ConvNet import augmentations
 from traco.ConvNet.video_tracking_dataset import VideoTrackingDataset
-import matplotlib
+
 matplotlib.use('TkAgg')
 
-
 transform = augmentations.JointCompose([augmentations.ResizeImagePositions((512, 512)),
-                                            augmentations.JointRandomFlip(0.5, 0.5),
-                                            augmentations.JointWrapper(transforms.ToTensor())])
+                                        augmentations.JointRandomFlip(0.5, 0.5),
+                                        augmentations.JointWrapper(transforms.ToTensor()),
+                                        augmentations.JointWrapper(
+                                            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
+                                        augmentations.JointWrapper(transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]))])
 
 dataset = VideoTrackingDataset("../training", "../training", transform=transform)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, collate_fn=augmentations.collate_padding)
 
 for i, (frame, positions, num_bugs) in enumerate(dataloader):
     # Entferne Batch-Dimension: [1, C, H, W] -> [C, H, W]
@@ -36,6 +39,5 @@ for i, (frame, positions, num_bugs) in enumerate(dataloader):
     plt.axis('off')
     plt.show()
 
-    if i == 3:  # Nur die ersten 4 Bilder zeigen
+    if i == 100:  # Nur die ersten 4 Bilder zeigen
         break
-

@@ -19,7 +19,7 @@ transform = augmentations.JointCompose([
     # transforms.Normalize(0.5, 0.5),
     # transforms.Resize((512, 512)),
     # transforms.RandomHorizontalFlip(p=0.5),
-    # transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
+    augmentations.JointWrapper(transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.3)),
     # augmentations.JointWrapper(transforms.ToPILImage),  # wieder zu PIL zur Anzeige
 ])
 

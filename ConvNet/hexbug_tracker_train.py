@@ -15,7 +15,7 @@ from traco.ConvNet.video_tracking_dataset import VideoTrackingDataset
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-batch_size = 64
+batch_size = 32
 
 
 def match_predictions_to_targets(pred, target):
@@ -189,18 +189,24 @@ def main():
         optimizer,
         mode='min',
         factor=0.1,
-        patience=5,
+        patience=10,
     )
 
     transform = augmentations.JointCompose([augmentations.ResizeImagePositions((512, 512)),
+                                            #augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointRandomFlip(0.5, 0.5),
-                                            augmentations.JointWrapper(transforms.ToTensor())])
+                                            augmentations.JointWrapper(transforms.ToTensor()),
+                                            augmentations.JointWrapper(
+                                                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
+                                            augmentations.JointWrapper(
+                                                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])),
+    ])
 
     dataset = VideoTrackingDataset("../training", "../training", transform=transform)
-    dataset = Subset(dataset, range(1000))
+    #dataset = Subset(dataset, range(500))
 
     kfolds = 1
-    epochs = 20
+    epochs = 50
 
     model_save_path = f"./models/hexbug_tracker_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/tracking_loss_folds{kfolds}_v{epochs}.png"
