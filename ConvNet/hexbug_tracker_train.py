@@ -25,6 +25,9 @@ def match_predictions_to_targets(pred, target):
 
     Es werden nur die ersten n_objects Predictions zum Matching verwendet.
     """
+    pred = pred.view(-1, 2)
+    target = target.view(-1, 2)
+
     n_target = target.shape[0]
     pred = pred[:n_target]  # Nur die ersten n_target Predictions verwenden
 
@@ -161,7 +164,7 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
         epoch_training_loss.append(avg_training_loss)
         epoch_validation_loss.append(avg_validation_loss)
 
-        if t % 5 == 0:
+        if t % 3 == 0:
             torch.save(model.state_dict(), f"models/hexbug_tracker_v{t}")
 
     return epoch_training_loss, epoch_validation_loss
@@ -189,7 +192,7 @@ def main():
         optimizer,
         mode='min',
         factor=0.1,
-        patience=10,
+        patience=5,
     )
 
     transform = augmentations.JointCompose([augmentations.ResizeImagePositions((512, 512)),
@@ -206,7 +209,7 @@ def main():
     #dataset = Subset(dataset, range(500))
 
     kfolds = 1
-    epochs = 50
+    epochs = 15
 
     model_save_path = f"./models/hexbug_tracker_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/tracking_loss_folds{kfolds}_v{epochs}.png"

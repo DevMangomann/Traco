@@ -69,12 +69,21 @@ def normalize_positions(frame_labels, original_size, target_size):
     return labels
 
 
-def denormalize_positions(norm_labels, image_size):
-    h, w = image_size
-    labels = norm_labels.clone()
-    labels[:, 0] = (labels[:, 0] + 1) / 2 * w
-    labels[:, 1] = (labels[:, 1] + 1) / 2 * h
+def denormalize_positions(labels, original_size, target_size):
+    th, tw = target_size
+    oh, ow = original_size
+
+    #labels = norm_labels.clone()
+    # Von [-1, 1] → [0, target_width/height]
+    labels[:, 0] = (labels[:, 0] + 1) / 2 * tw
+    labels[:, 1] = (labels[:, 1] + 1) / 2 * th
+
+    # Rückskalierung von target_size → original_size
+    labels[:, 0] = labels[:, 0] * (ow / tw)
+    labels[:, 1] = labels[:, 1] * (oh / th)
+
     return labels
+
 
 
 def collate_padding(batch):

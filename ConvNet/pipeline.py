@@ -5,6 +5,7 @@ import torch
 from PIL import Image
 from scipy.optimize import linear_sum_assignment
 from torchvision import transforms
+import augmentations
 
 from traco.ConvNet.hexbug_predictor import HexbugPredictor
 from traco.ConvNet.hexbug_tracker import HexbugTracker
@@ -15,16 +16,16 @@ predictor_model.load_state_dict(torch.load("models/hexbug_predictor_folds1_v20.p
 predictor_model.eval()  # Setze das Modell in den Evaluierungsmodus
 
 tracking_model = HexbugTracker()
-tracking_model.load_state_dict(torch.load("models/hexbug_tracker_folds1_v20.pth", weights_only=True))
+tracking_model.load_state_dict(torch.load("models/hexbug_tracker_original_frames.pth", weights_only=True))
 tracking_model.eval()
 
 # Definiere die Transformationen für die Eingabebilder
-predict_transform = transforms.Compose([
+test_transform = transforms.Compose([
     transforms.Resize((512, 512)),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
-tracking_transform = transforms.Compose([transforms.ToTensor()])
 
 # Pfad zum Video
 video_path = "../training/training02.mp4"
@@ -48,8 +49,8 @@ while cap.isOpened():
     image = Image.fromarray(frame)
 
     # Wende die Transformationen auf das Bild an
-    predict_image = predict_transform(image)
-    tracking_image = tracking_transform(image)
+    predict_image = test_transform(image)
+    tracking_image = test_transform(image)
 
     # Füge eine Batch-Dimension hinzu
     predict_image = predict_image.unsqueeze(0)
@@ -68,11 +69,10 @@ while cap.isOpened():
     coords = coords.cpu().numpy()
 
     # Hole die Originalgröße des Bildes
-    original_height, original_width, _ = frame.shape
+    original_height, original_width = augmentations.get_image_size(frame)
 
     # Rechne die x- und y-Koordinaten zurück
-    coords[:, 0] = ((coords[:, 0] + 1) / 2) * original_width  # x
-    coords[:, 1] = ((coords[:, 1] + 1) / 2) * original_height  # y
+    coords = augmentations.denormalize_positions(coords, (original_height, original_width), (512 , 512))
 
     if frame_count == 0:
         for i in range(num_bugs):
