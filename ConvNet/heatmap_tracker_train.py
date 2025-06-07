@@ -1,7 +1,8 @@
+import os
+
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-from scipy.optimize import linear_sum_assignment
 from sklearn.model_selection import KFold
 from torch import nn
 from torch.utils.data import DataLoader
@@ -10,72 +11,32 @@ from torchvision.transforms import transforms
 
 import augmentations
 import helper
-from traco.ConvNet.models import HexbugTracker
-from traco.ConvNet.datasets import VideoTrackingDataset
+from traco.ConvNet.datasets import HeatmapDataset
+from traco.ConvNet.models import HexbugHeatmapTracker
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-batch_size = 32
-
-
-def match_predictions_to_targets(pred, target):
-    """
-    pred: Tensor der Form (max_objects, 2)
-    target: Tensor der Form (n_objects, 2)
-
-    Es werden nur die ersten n_objects Predictions zum Matching verwendet.
-    """
-    pred = pred.view(-1, 2)
-    target = target.view(-1, 2)
-
-    n_target = target.shape[0]
-    pred = pred[:n_target]  # Nur die ersten n_target Predictions verwenden
-
-    if pred.shape[0] == 0 or target.shape[0] == 0:
-        return pred.new_zeros((0, 2)), target.new_zeros((0, 2))
-
-    cost_matrix = torch.cdist(pred, target, p=2)
-
-    if torch.isnan(cost_matrix).any() or torch.isinf(cost_matrix).any():
-        print("Warnung: cost_matrix enthält NaN oder Inf.")
-        print("Pred:", pred)
-        print("Target:", target)
-        raise ValueError("Ungültige cost_matrix")
-
-    # Hungarian Matching
-    row_ind, col_ind = linear_sum_assignment(cost_matrix.cpu().detach().numpy())
-
-    matched_pred = pred[row_ind]
-    matched_target = target[col_ind]
-
-    return matched_pred, matched_target
+batch_size = 16
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
     training_loss = []
     size = len(dataloader.dataset)
     model.train()
-    for batch, (frame, positions, num_bugs) in enumerate(dataloader):
-        frame, num_bugs = frame.to(device), num_bugs.to(device)
-        pred = model(num_bugs, frame).squeeze()
+    for batch, (frame, heatmap) in enumerate(dataloader):
+        frame, heatmap = frame.to(device), heatmap.to(device)
+        pred = model(frame).squeeze()
 
-        batch_loss = torch.tensor(0.0, device=device)
-        for i in range(frame.shape[0]):
-            prediction = pred[i]
-            target = positions[i].to(device)
-            prediction, target = match_predictions_to_targets(prediction, target)
-            batch_loss += loss_fn(prediction, target)
+        loss = loss_fn(pred, heatmap)
+        training_loss.append(loss.item())
 
-        batch_loss /= frame.shape[0]
-        training_loss.append(batch_loss.item())
-
-        batch_loss.backward()
+        loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
         if batch % 1 == 0:
-            print(f"loss: {batch_loss.item():>7f}  [{batch * batch_size + len(frame):>5d}/{size:>5d}]")
+            print(f"loss: {loss.item():>7f}  [{batch * batch_size + len(frame):>5d}/{size:>5d}]")
 
     return training_loss
 
@@ -85,19 +46,13 @@ def test_loop(dataloader, model, loss_fn):
     test_loss = []
 
     with torch.no_grad():
-        for (frame, positions, num_bugs) in dataloader:
-            frame, num_bugs = frame.to(device), num_bugs.to(device)
-            pred = model(num_bugs, frame).squeeze()
+        for (frame, heatmap) in dataloader:
+            frame, heatmap = frame.to(device), heatmap.to(device)
+            pred = model(frame).squeeze()
 
-            batch_loss = torch.tensor(0.0, device=device)
-            for i in range(frame.shape[0]):
-                prediction = pred[i]
-                target = positions[i].to(device)
-                prediction, target = match_predictions_to_targets(prediction, target)
-                batch_loss += loss_fn(prediction, target)
+            loss = loss_fn(pred, heatmap)
 
-            batch_loss /= frame.shape[0]
-            test_loss.append(batch_loss.item())
+            test_loss.append(loss.item())
 
     return test_loss
 
@@ -107,11 +62,9 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler
         train_size = int(0.8 * len(dataset))
         train_set = Subset(dataset, range(train_size))
         val_set = Subset(dataset, range(train_size, len(dataset)))
-        train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True,
-                                      collate_fn=helper.collate_padding, num_workers=4, pin_memory=True,
+        train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True,
                                       prefetch_factor=4)
-        val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False,
-                                    collate_fn=helper.collate_padding, num_workers=4, pin_memory=True,
+        val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True,
                                     prefetch_factor=4)
 
         epoch_training_loss, epoch_validation_loss = epoch_training(epochs, train_dataloader, val_dataloader, model,
@@ -126,7 +79,7 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler
         fold_train_loss = [0.0] * epochs
         fold_val_loss = [0.0] * epochs
         for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
-            model = HexbugTracker().to(device)
+            model = HexbugHeatmapTracker().to(device)
             # model.apply(init_weights_he)
 
             print(f"\n=== Fold {fold + 1} / {kfolds} ===")
@@ -188,7 +141,7 @@ def print_losscurve(training_losses, validation_losses, kfolds, save_path):
 
 def main():
     torch.cuda.empty_cache()
-    model = HexbugTracker().to(device)
+    model = HexbugHeatmapTracker().to(device)
     # model.apply(init_weights_alexnet)
     learning_rate = 0.001
     loss_fn = nn.MSELoss()
@@ -200,24 +153,29 @@ def main():
         patience=10,
     )
 
-    transform = augmentations.JointCompose([augmentations.ResizeImagePositions((512, 512)),
-                                            #augmentations.JointWrapper(transforms.ToTensor()),
+    transform = augmentations.JointCompose([augmentations.ResizeImagePositions((256, 256)),
+                                            # augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointRandomFlip(0.5, 0.5),
                                             augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointWrapper(
-                                                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
+                                                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2,
+                                                                       hue=0.02)),
                                             augmentations.JointWrapper(
                                                 transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])),
-    ])
+                                            ])
 
-    dataset = VideoTrackingDataset("../training", "../Background_training", transform=transform)
-    #dataset = Subset(dataset, range(500))
+    # tmpdir = os.environ.get("TMPDIR", "/tmp")  # fallback zu /tmp für lokale Tests
+    # lable_path = os.path.join(tmpdir, "training")
+    # data_path = os.path.join(tmpdir, "training")
+
+    dataset = HeatmapDataset("../training", "../training", transform=transform)
+    dataset = Subset(dataset, range(1000))
 
     kfolds = 1
-    epochs = 60
+    epochs = 2
 
-    model_save_path = f"./model_weights/hexbug_tracker_folds{kfolds}_v{epochs}.pth"
-    loss_save_path = f"./plots/tracking_loss_folds{kfolds}_v{epochs}.png"
+    model_save_path = f"./model_weights/hexbug_heatmap_tracker_folds{kfolds}_v{epochs}.pth"
+    loss_save_path = f"./plots/heatmap_tracking_loss_folds{kfolds}_v{epochs}.png"
 
     Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path)
 

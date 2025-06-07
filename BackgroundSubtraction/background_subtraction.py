@@ -20,6 +20,8 @@ def background_subtraction(background_image, video_path, output_path, threshold=
     frame_size = (frame_width, frame_height)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec für MP4-Videos
     video_writer = cv2.VideoWriter(output_path, fourcc, 10, frame_size)
+    subtracted = subtractImage(background_image, first_frame, threshold)
+    video_writer.write(subtracted)
 
     while True:
         ret, frame = cap.read()

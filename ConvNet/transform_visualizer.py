@@ -5,14 +5,15 @@ import torch
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import traco.ConvNet.augmentations as augmentations
+from traco.ConvNet.helper import get_image_size, denormalize_positions
 
-video_path = "../Background_training/training010.mp4"
-label_path = "../training/training010.csv"
+video_path = "../training/training035.mp4"
+label_path = "../training/training035.csv"
 cap = cv2.VideoCapture(video_path)
 labels = pd.read_csv(label_path)
 
 # Beispiel-Transformationskette
-transform = augmentations.JointCompose([augmentations.ResizeImagePositions((512, 512)),
+transform = augmentations.JointCompose([augmentations.ResizeImagePositions((256, 256)),
                                             #augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointRandomFlip(0.5, 0.5),
                                             augmentations.JointWrapper(transforms.ToTensor()),
@@ -37,8 +38,8 @@ while True:
 
         # Transform anwenden
         frame_rgb, label_positions = transform(frame_rgb, label_positions)
-        height, width = augmentations.get_image_size(frame_rgb)
-        label_positions = augmentations.denormalize_positions(label_positions, (height, width), (512, 512))
+        height, width = get_image_size(frame_rgb)
+        label_positions = denormalize_positions(label_positions, (height, width), (512, 512))
 
         # Zurück zu NumPy und RGB -> BGR für OpenCV-Anzeige
         if isinstance(frame_rgb, torch.Tensor):

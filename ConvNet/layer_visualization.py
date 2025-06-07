@@ -1,12 +1,12 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import torch
-from hexbug_tracker import HexbugTracker
+from models import HexbugTracker
 
 matplotlib.use('TkAgg')
 
 model = HexbugTracker()
-model.load_state_dict(torch.load("models/hexbug_tracker_original_frames.pth", weights_only=True))
+model.load_state_dict(torch.load("model_weights/hexbug_tracker_original_frames_v40.pth", weights_only=True))
 
 first_conv = model.conv[3]  # nn.Conv2d(3, 64, 11, ...)
 filters = first_conv.weight.data.clone()  # Tensor mit Shape (64, 3, 11, 11)

@@ -6,29 +6,32 @@ from PIL import Image
 from scipy.optimize import linear_sum_assignment
 from torchvision import transforms
 import augmentations
+from traco.ConvNet.helper import denormalize_positions
 
-from traco.ConvNet.hexbug_predictor import HexbugPredictor
-from traco.ConvNet.hexbug_tracker import HexbugTracker
+from traco.ConvNet.models import HexbugPredictor
+from traco.ConvNet.models import HexbugTracker
 
 # Lade das trainierte Modell
 predictor_model = HexbugPredictor()
-predictor_model.load_state_dict(torch.load("models/hexbug_predictor_folds1_v20.pth", weights_only=True))
+predictor_model.load_state_dict(torch.load("model_weights/hexbug_predictor_folds1_v20.pth", weights_only=True))
 predictor_model.eval()  # Setze das Modell in den Evaluierungsmodus
 
 tracking_model = HexbugTracker()
-tracking_model.load_state_dict(torch.load("models/hexbug_tracker_original_frames.pth", weights_only=True))
+tracking_model.load_state_dict(torch.load("model_weights/hexbug_tracker_background_v60.pth", weights_only=True))
 tracking_model.eval()
+
+target_size = (512, 512)
 
 # Definiere die Transformationen für die Eingabebilder
 test_transform = transforms.Compose([
-    transforms.Resize((512, 512)),
+    transforms.Resize(target_size),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
 
 # Pfad zum Video
-video_path = "../training/training02.mp4"
+video_path = "../Background_training/training02.mp4"
 
 # Lade das Video
 cap = cv2.VideoCapture(video_path)
@@ -58,8 +61,8 @@ while cap.isOpened():
 
     # Führe die Vorhersage mit dem Modell aus
     with torch.no_grad():
-        #num_bugs = predictor_model(predict_image)
-        #num_bugs = torch.round(num_bugs)
+        num_bugs = predictor_model(predict_image)
+        num_bugs = torch.argmax(num_bugs, dim=1)
         num_bugs = torch.tensor([1])
         positions = tracking_model(num_bugs, tracking_image)
 
@@ -72,7 +75,7 @@ while cap.isOpened():
     original_height, original_width = augmentations.get_image_size(frame)
 
     # Rechne die x- und y-Koordinaten zurück
-    coords = augmentations.denormalize_positions(coords, (original_height, original_width), (512 , 512))
+    coords = denormalize_positions(coords, (original_height, original_width), target_size)
 
     if frame_count == 0:
         for i in range(num_bugs):

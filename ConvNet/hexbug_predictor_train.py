@@ -1,20 +1,23 @@
+import os
+
 import numpy as np
 import torch
+import torch.optim.lr_scheduler
 from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data import Subset
 from torchvision import transforms
-import torch.optim.lr_scheduler
 
-from traco.ConvNet.hexbug_predictor import HexbugPredictor, init_weights_alexnet
-from traco.ConvNet.video_predicting_dataset import VideoPredictingDataset
+from traco.ConvNet import augmentations
+from traco.ConvNet.datasets import VideoPredictingDataset
+from traco.ConvNet.models import HexbugPredictor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-batch_size = 64
+batch_size = 32
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
@@ -32,8 +35,8 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 100 == 0:
-            print(f"Output: {pred[0]}  Label: {y[0]}")
+        if batch % 10 == 0:
+            #print(f"Output: {pred[0]}  Label: {y[0]}")
             loss, current = loss.item(), batch * batch_size + len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
@@ -54,8 +57,8 @@ def test_loop(dataloader, model, loss_fn):
             loss = loss_fn(pred, y)
             test_loss.append(loss.item())
 
-            pred_rounded = torch.round(pred)
-            correct += (pred_rounded == y).sum().item()  # z. B. 3 == 3
+            pred_label = pred.argmax(1)  # shape (batch_size,)
+            correct += (pred_label == y).sum().item()
 
     correct /= size
     avg_test = sum(test_loss) / len(test_loss)
@@ -68,8 +71,10 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler
         train_size = int(0.8 * len(dataset))
         train_set = Subset(dataset, range(train_size))
         val_set = Subset(dataset, range(train_size, len(dataset)))
-        train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
-        val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
+        train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True,
+                                      prefetch_factor=4)
+        val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True,
+                                    prefetch_factor=4)
 
         epoch_training_loss, epoch_validation_loss = epoch_training(epochs, train_dataloader, val_dataloader, model,
                                                                     loss_fn, optimizer, scheduler)
@@ -84,7 +89,7 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler
         fold_val_loss = [0.0] * epochs
         for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
             model = HexbugPredictor().to(device)
-            #model.apply(init_weights_he)
+            # model.apply(init_weights_he)
 
             print(f"\n=== Fold {fold + 1} / {kfolds} ===")
 
@@ -125,7 +130,8 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
         epoch_training_loss.append(avg_training_loss)
         epoch_validation_loss.append(avg_validation_loss)
 
-        torch.save(model.state_dict(), f"models/hexbug_predictor_v{t}")
+        if t % 3 == 0:
+            torch.save(model.state_dict(), f"model_weights/hexbug_predictor_v{t}")
 
     return epoch_training_loss, epoch_validation_loss
 
@@ -144,37 +150,40 @@ def print_losscurve(training_losses, validation_losses, kfolds, save_path):
 def main():
     torch.cuda.empty_cache()
     model = HexbugPredictor().to(device)
-    #model.apply(init_weights_alexnet)
+    # model.apply(init_weights_alexnet)
     learning_rate = 0.001
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='min',
         factor=0.1,
-        patience=3,
+        patience=10,
         threshold=0.01,
     )
 
-    transform = transforms.Compose([
-        transforms.ToPILImage(),
-        transforms.Resize((512, 512)),
-        transforms.ToTensor(),
-        transforms.RandomHorizontalFlip(0.5),
-        transforms.RandomVerticalFlip(0.5)
-    ])
+    transform = transforms.Compose([transforms.ToPILImage(), transforms.Resize((512, 512)), transforms.ToTensor(),
+                                    transforms.RandomHorizontalFlip(0.5), transforms.RandomVerticalFlip(0.5),
+                                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                                    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)])
+
+    #tmpdir = os.environ.get("TMPDIR", "/tmp")  # fallback zu /tmp für lokale Tests
+    #lable_path = os.path.join(tmpdir, "training")
+    #data_path = os.path.join(tmpdir, "training")
 
     dataset = VideoPredictingDataset("../training", "../training", transform=transform)
-    #dataset = Subset(dataset, range(1000))
+    dataset = Subset(dataset, range(2000))
 
     kfolds = 1
-    epochs = 20
+    epochs = 1
 
-    model_save_path = f"./models/hexbug_predictor_folds{kfolds}_v{epochs}.pth"
+    model_save_path = f"./model_weights/hexbug_predictor_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/predicting_loss_folds{kfolds}_v{epochs}.png"
 
     Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path)
 
 
 if __name__ == '__main__':
+    import torch.multiprocessing as mp
+    mp.set_start_method('spawn', force=True)
     main()
