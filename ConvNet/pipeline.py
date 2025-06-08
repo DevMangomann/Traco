@@ -94,7 +94,7 @@ while cap.isOpened():
 
         # IDs übernehmen
         for i in range(len(row_ind)):
-            prev_id = last_prediction[row_ind[i], 0]
+            prev_id = last_prediction[row_ind[i], 2]
             new_x, new_y = coords[col_ind[i]]
             new_row = np.array([[int(row_count), int(frame_count), int(i), float(new_x), float(new_y)]],
                                dtype=np.float32)

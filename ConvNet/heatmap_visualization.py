@@ -20,7 +20,7 @@ transform = augmentations.JointCompose([augmentations.ResizeImagePositions(targe
                                         augmentations.JointWrapper(transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]))])
 
 model = HexbugHeatmapTracker()
-model.load_state_dict(torch.load("model_weights/hexbug_heatmap_tracker_folds1_v2.pth"))
+model.load_state_dict(torch.load("model_weights/hexbug_heatmap_tracker_v50.pth"))
 model.eval()
 
 dataset = HeatmapDataset("../training", "../training", transform=transform)

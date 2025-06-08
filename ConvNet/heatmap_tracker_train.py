@@ -123,7 +123,7 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
         epoch_validation_loss.append(avg_validation_loss)
 
         if t % 3 == 0:
-            torch.save(model.state_dict(), f"model_weights/hexbug_tracker_v{t}")
+            torch.save(model.state_dict(), f"model_weights/hexbug_heatmap_tracker_v{t}.pth")
 
     return epoch_training_loss, epoch_validation_loss
 

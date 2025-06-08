@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
+from skimage.feature import peak_local_max
 
 
 def normalize_positions(frame_labels, original_size, target_size):
@@ -29,7 +30,6 @@ def denormalize_positions(labels, original_size, target_size):
 
     return labels
 
-
 def coords_from_heatmap(heatmap, num_bugs, original_size):
     if isinstance(heatmap, torch.Tensor):
         heatmap = heatmap.detach().cpu().numpy()
@@ -37,17 +37,37 @@ def coords_from_heatmap(heatmap, num_bugs, original_size):
     H_map, W_map = get_image_size(heatmap)
     H_orig, W_orig = original_size
 
-    flat = heatmap.flatten()
-    topk_indices = np.argpartition(flat, -num_bugs)[-num_bugs:]
-    topk_indices = topk_indices[np.argsort(-flat[topk_indices])]  # Sortiert nach Score
+    # Erst lokale Maxima suchen
+    coordinates = peak_local_max(
+        heatmap,
+        min_distance=10,
+        num_peaks=num_bugs,
+        threshold_rel=0.1
+    )
 
-    # Index zu 2D-Koordinate und skalieren
-    coords = []
-    for idx in topk_indices:
-        y, x = np.unravel_index(idx, heatmap.shape)
+    if len(coordinates) < num_bugs:
+        print(f"[Warnung] Nur {len(coordinates)} lokale Maxima gefunden, ergänze auf {num_bugs}.")
+
+        # Fallback: Top-K über argpartition holen
+        flat = heatmap.flatten()
+        topk_indices = np.argpartition(flat, -num_bugs)[-num_bugs:]
+        topk_indices = topk_indices[np.argsort(-flat[topk_indices])]
+        topk_coords = np.array([np.unravel_index(idx, heatmap.shape) for idx in topk_indices])
+
+        # Ergänze nur fehlende Koordinaten
+        existing = set(map(tuple, coordinates))
+        for yx in topk_coords:
+            if tuple(yx) not in existing:
+                coordinates = np.vstack([coordinates, yx])
+            if len(coordinates) == num_bugs:
+                break
+
+    # Skalieren auf Originalgröße
+    coords = np.empty((0, 2), dtype=np.float32)
+    for y, x in coordinates[:num_bugs]:
         x_scaled = int(x * W_orig / W_map)
         y_scaled = int(y * H_orig / H_map)
-        coords.append((x_scaled, y_scaled))
+        coords = np.vstack([coords, np.array([x_scaled, y_scaled])])
 
     return coords
 
