@@ -17,7 +17,7 @@ from traco.ConvNet.models import HexbugHeatmapTracker
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-batch_size = 16
+batch_size = 32
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
@@ -35,7 +35,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 1 == 0:
+        if batch % 100 == 0:
             print(f"loss: {loss.item():>7f}  [{batch * batch_size + len(frame):>5d}/{size:>5d}]")
 
     return training_loss
@@ -144,7 +144,7 @@ def main():
     model = HexbugHeatmapTracker().to(device)
     # model.apply(init_weights_alexnet)
     learning_rate = 0.001
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.MSELoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,

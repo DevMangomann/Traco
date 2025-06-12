@@ -1,6 +1,9 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
+from matplotlib import pyplot as plt
+from scipy.ndimage import gaussian_filter
+from scipy.spatial.distance import cdist
 from skimage.feature import peak_local_max
 
 
@@ -37,10 +40,12 @@ def coords_from_heatmap(heatmap, num_bugs, original_size):
     H_map, W_map = get_image_size(heatmap)
     H_orig, W_orig = original_size
 
+    heatmap_smooth = gaussian_filter(heatmap, sigma=1)
+
     # Erst lokale Maxima suchen
     coordinates = peak_local_max(
-        heatmap,
-        min_distance=10,
+        heatmap_smooth,
+        min_distance=5,
         num_peaks=num_bugs,
         threshold_rel=0.1
     )
@@ -48,17 +53,22 @@ def coords_from_heatmap(heatmap, num_bugs, original_size):
     if len(coordinates) < num_bugs:
         print(f"[Warnung] Nur {len(coordinates)} lokale Maxima gefunden, ergänze auf {num_bugs}.")
 
-        # Fallback: Top-K über argpartition holen
+        def is_far_enough(new_coord, existing_coords, min_dist=5):
+            if len(existing_coords) == 0:
+                return True
+            dists = cdist([new_coord], existing_coords)
+            return np.all(dists > min_dist)
+
         flat = heatmap.flatten()
-        topk_indices = np.argpartition(flat, -num_bugs)[-num_bugs:]
+        topk_indices = np.argpartition(flat, -num_bugs * 2)[-num_bugs * 2:]  # mehr holen für Sicherheit
         topk_indices = topk_indices[np.argsort(-flat[topk_indices])]
         topk_coords = np.array([np.unravel_index(idx, heatmap.shape) for idx in topk_indices])
 
-        # Ergänze nur fehlende Koordinaten
-        existing = set(map(tuple, coordinates))
+        existing = np.array(coordinates)
         for yx in topk_coords:
-            if tuple(yx) not in existing:
+            if is_far_enough(yx, existing, min_dist=5):
                 coordinates = np.vstack([coordinates, yx])
+                existing = np.vstack([existing, yx])
             if len(coordinates) == num_bugs:
                 break
 

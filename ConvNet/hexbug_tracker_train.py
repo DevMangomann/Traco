@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
@@ -74,7 +76,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 1 == 0:
+        if batch % 100 == 0:
             print(f"loss: {batch_loss.item():>7f}  [{batch * batch_size + len(frame):>5d}/{size:>5d}]")
 
     return training_loss
@@ -191,7 +193,7 @@ def main():
     model = HexbugTracker().to(device)
     # model.apply(init_weights_alexnet)
     learning_rate = 0.001
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.MSELoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
@@ -209,6 +211,10 @@ def main():
                                             augmentations.JointWrapper(
                                                 transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])),
     ])
+
+    # tmpdir = os.environ.get("TMPDIR", "/tmp")  # fallback zu /tmp für lokale Tests
+    # lable_path = os.path.join(tmpdir, "training")
+    # data_path = os.path.join(tmpdir, "training")
 
     dataset = VideoTrackingDataset("../training", "../Background_training", transform=transform)
     #dataset = Subset(dataset, range(500))

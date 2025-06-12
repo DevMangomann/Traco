@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-#SBATCH --job-name=hexbug_train
+#SBATCH --job-name=heatmap_train
 #SBATCH --output=job_%j.out
 #SBATCH --error=job_%j.err
 #SBATCH --time=4:00:00
@@ -13,7 +13,7 @@
 
 unset SLURM_EXPORT_ENV
 
-module add python
+module load python
 conda activate traco
 
 # Entpacken ins TMPDIR

@@ -20,7 +20,7 @@ transform = augmentations.JointCompose([augmentations.ResizeImagePositions(targe
                                         augmentations.JointWrapper(transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]))])
 
 model = HexbugHeatmapTracker()
-model.load_state_dict(torch.load("model_weights/hexbug_heatmap_tracker_v50.pth"))
+model.load_state_dict(torch.load("model_weights/hexbug_heatmap_tracker_v50_original.pth"))
 model.eval()
 
 dataset = HeatmapDataset("../training", "../training", transform=transform)
@@ -35,7 +35,7 @@ for i, (frame, heatmap) in enumerate(dataloader):
     image = frame[0]
     gt_heat = heatmap[0].squeeze()
     pred_heat = heatmap_prediction[0].squeeze()
-    coords = helper.coords_from_heatmap(pred_heat, 3, (1000,1000))
+    coords = helper.coords_from_heatmap(pred_heat, 3, (256, 256))
     print(coords)
 
     # Bild umwandeln: (C, H, W) -> (H, W, C)
