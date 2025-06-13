@@ -1,3 +1,4 @@
+import math
 import random
 
 import numpy as np
@@ -35,6 +36,30 @@ class JointRandomFlip:
             positions[:, 1] = -positions[:, 1]  # flip y-coordinate
 
         return image, positions
+
+
+class JointRotation:
+    def __init__(self, degrees):
+        self.degrees = degrees
+
+    def __call__(self, image, label_positions):
+        # Zufälligen Drehwinkel wählen
+        rotate_degrees = random.uniform(-self.degrees, self.degrees)
+        rotate_rad = math.radians(rotate_degrees)
+
+        # Bild rotieren um das Zentrum
+        image = tf.rotate(image, angle=rotate_degrees, center=[image.width / 2, image.height / 2])
+
+        # Punkte rotieren (Koordinaten im Bereich [-1, 1], also Ursprung = Bildzentrum)
+        cos_r = math.cos(rotate_rad)
+        sin_r = math.sin(rotate_rad)
+        rot_mat = np.array([
+            [cos_r, -sin_r],
+            [sin_r, cos_r]
+        ])
+        rotated_positions = label_positions @ rot_mat  # Matrixmultiplikation
+
+        return image, rotated_positions
 
 
 class ResizeImagePositions:

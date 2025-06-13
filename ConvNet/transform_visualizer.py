@@ -15,12 +15,13 @@ labels = pd.read_csv(label_path)
 # Beispiel-Transformationskette
 transform = augmentations.JointCompose([augmentations.ResizeImagePositions((256, 256)),
                                             #augmentations.JointWrapper(transforms.ToTensor()),
-                                            augmentations.JointRandomFlip(0.5, 0.5),
+                                            #augmentations.JointRandomFlip(0.5, 0.5),
+                                        augmentations.JointRotation(90.0),
                                             augmentations.JointWrapper(transforms.ToTensor()),
-                                            augmentations.JointWrapper(
-                                                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
-                                            augmentations.JointWrapper(
-                                                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])),
+                                            #augmentations.JointWrapper(
+                                            #    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
+                                            #augmentations.JointWrapper(
+                                            #    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])),
     ])
 
 paused = False
@@ -45,7 +46,9 @@ while True:
         if isinstance(frame_rgb, torch.Tensor):
             frame_rgb = frame_rgb.permute(1, 2, 0).numpy()
         frame_bgr = cv2.cvtColor(np.array(frame_rgb), cv2.COLOR_RGB2BGR)
-        for (x, y) in label_positions.numpy().astype(int):
+        if isinstance(label_positions, torch.Tensor):
+            label_positions = label_positions.numpy()
+        for (x, y) in label_positions.astype(int):
             cv2.circle(frame_bgr, (x, y), radius=4, color=(0, 255, 0), thickness=-1)
 
         cv2.imshow('Video mit transforms', frame_bgr)
