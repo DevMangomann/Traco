@@ -1,14 +1,14 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import torch
-from models import HexbugTracker
+from models import HexbugTracker, HexbugPredictor, HexbugHeatmapTracker
 
 matplotlib.use('TkAgg')
 
-model = HexbugTracker()
-model.load_state_dict(torch.load("model_weights/hexbug_tracker_original_frames_v40.pth", weights_only=True))
+model = HexbugHeatmapTracker()
+model.load_state_dict(torch.load("model_weights/hexbug_heatmap_tracker_v50_original.pth", weights_only=True))
 
-first_conv = model.conv[3]  # nn.Conv2d(3, 64, 11, ...)
+first_conv = model.conv[0]  # nn.Conv2d(3, 64, 11, ...)
 filters = first_conv.weight.data.clone()  # Tensor mit Shape (64, 3, 11, 11)
 
 # Wähle Anzahl der Filter, die du anzeigen willst

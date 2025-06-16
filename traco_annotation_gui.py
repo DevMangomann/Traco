@@ -1,7 +1,9 @@
-import PyQt6
-from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, \
-    QGridLayout, QWidget, QMessageBox, QLabel, QCheckBox, \
-        QSizePolicy, QComboBox
+import os
+import sys
+
+from PyQt6.QtWidgets import QMainWindow, QFileDialog, \
+    QGridLayout, QWidget, QMessageBox, QCheckBox, \
+    QSizePolicy, QComboBox
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtCore import pyqtRemoveInputHook
 import pandas as pd
@@ -9,10 +11,11 @@ import pyqtgraph as pg
 import imageio as io
 import numpy as np
 import json
-import os
 import matplotlib.pyplot as plt
 
 from pdb import set_trace
+
+from PyQt6.QtWidgets import QApplication, QLabel
 
 
 def trace():
@@ -38,6 +41,7 @@ class ROI:
         """
         return {'pos': tuple(self.pos), 'shown': self.shown}
 
+
 ## Custom ImageView
 class ImageView(pg.ImageView):
     keysignal = pyqtSignal(int)
@@ -56,7 +60,7 @@ class ImageView(pg.ImageView):
         # Set 2D image
         self.setImage(im)
         self.colors = ['#1a87f4', '#ebf441', '#9b1a9b', '#42f489']
-        
+
         self.realRois = []
 
         for i in range(4):
@@ -68,7 +72,7 @@ class ImageView(pg.ImageView):
             # t.sigRegionChanged.connect(self.saveROIs)
             self.realRois.append(t)
             self.getView().addItem(self.realRois[-1])
-        
+
         self.getView().setMenuEnabled(False)
 
         # Set reference to stack
@@ -80,11 +84,21 @@ class ImageView(pg.ImageView):
         xy = self.getImageItem().mapFromScene(pos.x(), pos.y())
         modifiers = QApplication.keyboardModifiers()
 
+        # Check if click is inside the image area
+        # Prevents:
+        # 1) Assigning the ROI to the click on the timeline for the very first frame (when reading from an existing .traco file)
+        # 2) Assigning out of bounds clicks
+        image_item = self.getImageItem()
+        if not image_item.boundingRect().contains(xy):
+            # Pass event to base class (for timeline, etc.)
+            super().mousePressEvent(e)
+            return
+
         # Set posterior point
         if e.button() == Qt.MouseButton.LeftButton:
-        #if e.button() == Qt.MouseButton.LeftButton and modifiers == Qt.KeyboardModifier.ControlModifier:
+            # if e.button() == Qt.MouseButton.LeftButton and modifiers == Qt.KeyboardModifier.ControlModifier:
             self.realRois[self.stack.annotating].setPos(xy)
-            self.realRois[self.stack.annotating].show() 
+            self.realRois[self.stack.annotating].show()
 
             # Check checkbox
             self.mousesignal.emit(self.stack.annotating)
@@ -97,7 +111,7 @@ class ImageView(pg.ImageView):
         """
         for i, r in enumerate(rois):
             self.realRois[i].setPos(r.pos)
-            
+
             if r.shown:
                 self.realRois[i].show()
             else:
@@ -105,7 +119,7 @@ class ImageView(pg.ImageView):
 
     def getROIs(self):
         """Saves and returns the current ROIs"""
-        
+
         return [ROI(r.pos(), r.isVisible()) for r in self.realRois]
 
     def keyPressEvent(self, ev):
@@ -133,15 +147,15 @@ class Stack(QWidget):
 
         self.fn = fn
         self.colors = ['#1a87f4', '#c17511', '#9b1a9b', '#0c7232']
-        
+
         self.curId = 0
         self.freeze = False
 
         self.im = np.asarray(io.mimread(self.fn, memtest=False))
-        self.dim = self.im.shape        
+        self.dim = self.im.shape
 
         self.rois = self.createROIs(rois)
-        
+
         self.w = ImageView(self.im.transpose(0, 2, 1, 3), parent=self)
 
         ### Create Grid Layout and add the main image window to layout ###
@@ -159,7 +173,7 @@ class Stack(QWidget):
         ### Checkboxes for point selection ###
         self.annotate = QComboBox()
         self.annotate.addItems([
-            f"Hexbug {i}" for i in range(1,5)
+            f"Hexbug {i}" for i in range(1, 5)
         ])
         self.annotate.currentIndexChanged.connect(self.changeAnnotating)
         self.annotating = 0
@@ -200,7 +214,6 @@ class Stack(QWidget):
         self.ll.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding))
         self.l.addWidget(self.ll, 11, 1)
 
-    
         self.setLayout(self.l)
 
         ### Update once the checkboxes and the ROIs ###
@@ -213,7 +226,7 @@ class Stack(QWidget):
 
     def createROIs(self, rois=None):
         tmp_rois = [[ROI([100 + i * 25, 100 + i * 25], False) for i in range(4)]
-                for _ in range(self.dim[0])]
+                    for _ in range(self.dim[0])]
 
         # Loads saved ROIs
         if type(rois) == list:
@@ -259,31 +272,30 @@ class Stack(QWidget):
 
     def mousePress(self, roi_id):
         if roi_id == 0:
-         
+
             self.p1.setChecked(True)
 
         elif roi_id == 1:
-  
+
             self.p2.setChecked(True)
 
         elif roi_id == 2:
-  
+
             self.p3.setChecked(True)
 
         elif roi_id == 3:
-            
+
             self.p4.setChecked(True)
 
         if self.autoMove.isChecked():
             self.forceStep(1)
 
     def forceStep(self, direction=1):
-        self.w.setCurrentIndex(self.curId+direction)
+        self.w.setCurrentIndex(self.curId + direction)
 
     def changeZ(self, *args, force_step=0):
         # Save ROIs
         self.rois[self.curId] = self.w.getROIs()
-            
 
         # New image position
         self.curId = self.w.currentIndex
@@ -292,11 +304,10 @@ class Stack(QWidget):
         # Set current image and current ROI data
         self.w.setROIs(self.rois[self.curId])
 
-
     def keyPress(self, key):
         # AD for -1 +1
         if key == Qt.Key.Key_D:
-             self.forceStep(1)
+            self.forceStep(1)
 
         elif key == Qt.Key.Key_A:
             self.forceStep(-1)
@@ -323,6 +334,7 @@ class Stack(QWidget):
         # Emit Save command to parent class
         if e.key() == Qt.Key.Key_S:
             self.w.keysignal.emit(e.key())
+
 
 ######################
 ######################
@@ -371,9 +383,8 @@ class Main(QMainWindow):
 
         for i, xy in enumerate(xys):
             for j in xy:
-                plt.scatter(*j, color="#"+self.stack.colors[i])
+                plt.scatter(*j, color="#" + self.stack.colors[i])
 
-        
         plt.xlim([0, self.stack.dim[2]])
         plt.ylim([self.stack.dim[1], 0])
         plt.show()
@@ -394,21 +405,23 @@ class Main(QMainWindow):
                     e = {
                         't': i,
                         'hexbug': j,
-                        'x': r.pos[1],
-                        'y': r.pos[0]
+                        'x': r.pos[0],
+                        'y': r.pos[1]
                     }
 
                     if r.shown:
                         tmp.append(e)
 
-            pd.DataFrame(tmp).to_csv(fn)
-            
-            QMessageBox.information(self, "Data exported.", f"Data saved at\n{fn}")
+            # Output in consistent order
+            df = pd.DataFrame(tmp)
+            df = df.sort_values(['t', 'hexbug']).reset_index(drop=True)
+            df.to_csv(fn)
 
+            QMessageBox.information(self, "Data exported.", f"Data saved at\n{fn}")
 
     def close(self):
         ok = QMessageBox.question(self, "Exiting?",
-            "Do you really want to exit the annotation program? Ensure you save for progress.")
+                                  "Do you really want to exit the annotation program? Ensure you save for progress.")
 
         if ok == QMessageBox.Yes:
             super().close()
@@ -437,7 +450,7 @@ class Main(QMainWindow):
 
         # Was a file selected? Go for it!
         if fn:
-            self.fn = fn # assuming these are mp4 files...
+            self.fn = fn  # assuming these are mp4 files...
             self.fn_rois = fn.replace("mp4", "traco")
 
             # If ROI file is existing, read and decode
@@ -498,13 +511,13 @@ class Main(QMainWindow):
             self.save()
 
 
-
 if __name__ == '__main__':
     if not os.path.exists("settings.json"):
-        with open('settings.json','w') as fp:
+        with open('settings.json', 'w') as fp:
             json.dump(dict(default_directory=os.getcwd()), fp)
-        
+
     import sys
+
     app = QApplication(sys.argv)
 
     m = Main()
