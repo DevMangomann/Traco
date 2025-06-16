@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import traco.ConvNet.augmentations as augmentations
 from traco.ConvNet.helper import get_image_size, denormalize_positions
 
-video_path = "../training/training035.mp4"
-label_path = "../training/training035.csv"
+video_path = "../training/training0101.mp4"
+label_path = "../training/training0101.csv"
 cap = cv2.VideoCapture(video_path)
 labels = pd.read_csv(label_path)
 
