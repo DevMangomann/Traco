@@ -6,7 +6,7 @@ import torch.optim.lr_scheduler
 from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from torch.utils.data import Subset
 from torchvision import transforms
 
@@ -34,7 +34,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 100 == 0:
+        if batch % 1 == 0:
             print(device)
             print(f"Output: {pred[0]}  Label: {y[0]}")
             loss, current = loss.item(), batch * batch_size + len(X)
@@ -70,8 +70,8 @@ def test_loop(dataloader, model, loss_fn):
 def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path):
     if kfolds == 1:
         train_size = int(0.8 * len(dataset))
-        train_set = Subset(dataset, range(train_size))
-        val_set = Subset(dataset, range(train_size, len(dataset)))
+        val_size = len(dataset) - train_size
+        train_set, val_set = random_split(dataset, [train_size, val_size])
         train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True,
                                       prefetch_factor=4, persistent_workers=True)
         val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True,
@@ -173,15 +173,15 @@ def main():
                                     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02),
                                     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    tmpdir = os.environ.get("TMPDIR", "/tmp")  # fallback zu /tmp für lokale Tests
-    lable_path = os.path.join(tmpdir, "training")
-    data_path = os.path.join(tmpdir, "training")
+    # tmpdir = os.environ.get("TMPDIR", "/tmp")  # fallback zu /tmp für lokale Tests
+    # lable_path = os.path.join(tmpdir, "training")
+    # data_path = os.path.join(tmpdir, "training")
 
-    dataset = VideoPredictingDataset(lable_path, data_path, transform=transform)
-    # dataset = Subset(dataset, range(2000))
+    dataset = VideoPredictingDataset("../training", "../training", transform=transform)
+    # dataset = Subset(dataset, range(1000))
 
     kfolds = 1
-    epochs = 50
+    epochs = 2
 
     model_save_path = f"./model_weights/hexbug_predictor_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/predicting_loss_folds{kfolds}_v{epochs}.png"

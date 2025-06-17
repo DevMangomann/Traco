@@ -35,7 +35,7 @@ heatmap_transform = transforms.Compose([
 ])
 
 # Pfad zum Video
-video_path = "../leaderboard_data/test001.mp4"
+video_path = "../leaderboard_data/test003.mp4"
 
 # Lade das Video
 cap = cv2.VideoCapture(video_path)

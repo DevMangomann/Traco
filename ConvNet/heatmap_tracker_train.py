@@ -5,7 +5,7 @@ import torch
 from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from torch.utils.data import Subset
 from torchvision.transforms import transforms
 
@@ -35,7 +35,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 100 == 0:
+        if batch % 1 == 0:
             print(f"loss: {loss.item():>7f}  [{batch * batch_size + len(frame):>5d}/{size:>5d}]")
 
     return training_loss
@@ -60,8 +60,8 @@ def test_loop(dataloader, model, loss_fn):
 def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path):
     if kfolds == 1:
         train_size = int(0.8 * len(dataset))
-        train_set = Subset(dataset, range(train_size))
-        val_set = Subset(dataset, range(train_size, len(dataset)))
+        val_size = len(dataset) - train_size
+        train_set, val_set = random_split(dataset, [train_size, val_size])
         train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True,
                                       prefetch_factor=4)
         val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True,
@@ -156,6 +156,7 @@ def main():
     transform = augmentations.JointCompose([augmentations.ResizeImagePositions((256, 256)),
                                             # augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointRandomFlip(0.5, 0.5),
+                                            augmentations.JointRotation(90),
                                             augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointWrapper(
                                                 transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2,
@@ -169,7 +170,7 @@ def main():
     # data_path = os.path.join(tmpdir, "training")
 
     dataset = HeatmapDataset("../training", "../training", transform=transform)
-    dataset = Subset(dataset, range(1000))
+    # dataset = Subset(dataset, range(1000))
 
     kfolds = 1
     epochs = 2
@@ -181,4 +182,7 @@ def main():
 
 
 if __name__ == '__main__':
+    import torch.multiprocessing as mp
+
+    mp.set_start_method('spawn', force=True)
     main()
