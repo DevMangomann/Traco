@@ -5,10 +5,10 @@ import torch
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import traco.ConvNet.augmentations as augmentations
-from traco.ConvNet.helper import get_image_size, denormalize_positions
+from traco.ConvNet.helper import get_image_size, denormalize_positions, generate_heatmap
 
-video_path = "../training/training0101.mp4"
-label_path = "../training/training0101.csv"
+video_path = "../training/training089.mp4"
+label_path = "../training/training089.csv"
 cap = cv2.VideoCapture(video_path)
 labels = pd.read_csv(label_path)
 
@@ -40,12 +40,14 @@ while True:
         # Transform anwenden
         frame_rgb, label_positions = transform(frame_rgb, label_positions)
         height, width = get_image_size(frame_rgb)
-        label_positions = denormalize_positions(label_positions, (height, width), (512, 512))
+        heatmap = generate_heatmap(get_image_size(frame_rgb), label_positions)
+        label_positions = denormalize_positions(label_positions, (height, width), (256, 256))
 
         # Zurück zu NumPy und RGB -> BGR für OpenCV-Anzeige
         if isinstance(frame_rgb, torch.Tensor):
             frame_rgb = frame_rgb.permute(1, 2, 0).numpy()
         frame_bgr = cv2.cvtColor(np.array(frame_rgb), cv2.COLOR_RGB2BGR)
+        heatmap = cv2.cvtColor(np.array(heatmap), cv2.COLOR_RGB2BGR)
         if isinstance(label_positions, torch.Tensor):
             label_positions = label_positions.numpy()
         for (x, y) in label_positions.astype(int):
@@ -53,6 +55,8 @@ while True:
 
         cv2.imshow('Video mit transforms', frame_bgr)
         cv2.moveWindow('Video mit transforms', 0, 0)
+        cv2.imshow('HEATMAP', heatmap)
+        cv2.moveWindow('HEATMAP', 500, 0)
 
         frame_idx += 1
 

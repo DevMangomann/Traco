@@ -1,8 +1,8 @@
 import pandas as pd
 
 # Paths
-label_path = "./training/training0101.csv"
-merge_path = "./training/training01012.csv"
+label_path = "./training/training0103.csv"
+merge_path = "./training/training01032.csv"
 
 # Load CSVs
 label = pd.read_csv(label_path, index_col=0)
@@ -19,4 +19,4 @@ combined = pd.concat([label, merge], ignore_index=True)
 combined = combined.sort_values(by=['t', 'hexbug']).reset_index(drop=True)
 
 # Save to file
-combined.to_csv("./training/training0101.csv", index=True)
+combined.to_csv("./training/training0103.csv", index=True)
