@@ -14,28 +14,22 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Lade das trainierte Modell
 predictor_model = HexbugPredictor()
-predictor_model.load_state_dict(torch.load("model_weights/hexbug_predictor_v50_original.pth", weights_only=True, map_location=device))
+predictor_model.load_state_dict(torch.load("model_weights/predictor_training_plus_v60.pth", weights_only=True, map_location=device))
 predictor_model.eval()  # Setze das Modell in den Evaluierungsmodus
 
 tracking_model = HexbugHeatmapTracker()
-tracking_model.load_state_dict(torch.load("model_weights/hexbug_heatmap_tracker_v50_original.pth", weights_only=True, map_location=device))
+tracking_model.load_state_dict(torch.load("model_weights/heatmap_tracker_training_plus_v60.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
 # Definiere die Transformationen für die Eingabebilder
-predict_transform = transforms.Compose([
-    transforms.Resize((256, 256)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
-])
-
-heatmap_transform = transforms.Compose([
+transform = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
 # Pfad zum Video
-video_path = "../leaderboard_data/test003.mp4"
+video_path = "../leaderboard_data/test005.mp4"
 
 # Lade das Video
 cap = cv2.VideoCapture(video_path)
@@ -56,21 +50,19 @@ while cap.isOpened():
     image = Image.fromarray(frame)
 
     # Wende die Transformationen auf das Bild an
-    predict_image = predict_transform(image)
-    tracking_image = heatmap_transform(image)
+    image = transform(image)
 
     # Füge eine Batch-Dimension hinzu
-    predict_image = predict_image.unsqueeze(0)
-    tracking_image = tracking_image.unsqueeze(0)
+    image = image.unsqueeze(0)
 
     # Führe die Vorhersage mit dem Modell aus
     with torch.no_grad():
-        num_bugs = predictor_model(predict_image)
+        num_bugs = predictor_model(image)
         # print(num_bugs)
         num_bugs = torch.argmax(num_bugs, dim=1)
         print(num_bugs)
-        # num_bugs = torch.tensor([3])
-        heatmap = tracking_model(tracking_image)[0, 0]
+        num_bugs = torch.tensor([2])
+        heatmap = tracking_model(image)[0, 0]
 
     # Extrahiere die x- und y-Koordinaten aus der Vorhersage
     num_bugs = int(num_bugs.item())

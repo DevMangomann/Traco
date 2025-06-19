@@ -1,8 +1,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-from matplotlib import pyplot as plt
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, maximum_filter
 from scipy.spatial.distance import cdist
 from skimage.feature import peak_local_max
 
@@ -33,6 +32,31 @@ def denormalize_positions(labels, original_size, target_size):
 
     return labels
 
+
+def top_n_with_nms(heatmap, num_bugs, min_dist, original_size):
+    H_map, W_map = get_image_size(heatmap)
+    H_orig, W_orig = original_size
+    flat = heatmap.flatten()
+    indices = np.argpartition(flat, -num_bugs * 5)[-num_bugs * 5:]  # etwas großzügiger holen
+    sorted_indices = indices[np.argsort(-flat[indices])]  # sortiert nach Score
+    coords = np.array([np.unravel_index(i, heatmap.shape) for i in sorted_indices])
+
+    selected = []
+    for yx in coords:
+        if all(np.linalg.norm(np.array(yx) - np.array(sel)) > min_dist for sel in selected):
+            selected.append(yx)
+        if len(selected) == num_bugs:
+            break
+
+    coords = np.empty((0, 2), dtype=np.float32)
+    for y, x in np.array(selected):
+        x_scaled = int(x * W_orig / W_map)
+        y_scaled = int(y * H_orig / H_map)
+        coords = np.vstack([coords, np.array([x_scaled, y_scaled])])
+
+    return coords
+
+
 def coords_from_heatmap(heatmap, num_bugs, original_size):
     if isinstance(heatmap, torch.Tensor):
         heatmap = heatmap.detach().cpu().numpy()
@@ -40,20 +64,21 @@ def coords_from_heatmap(heatmap, num_bugs, original_size):
     H_map, W_map = get_image_size(heatmap)
     H_orig, W_orig = original_size
 
-    heatmap_smooth = gaussian_filter(heatmap, sigma=1)
+    heatmap = gaussian_filter(heatmap, sigma=1)
 
     # Erst lokale Maxima suchen
     coordinates = peak_local_max(
-        heatmap_smooth,
-        min_distance=5,
+        heatmap,
+        min_distance=2,
         num_peaks=num_bugs,
-        threshold_rel=0.1
+        threshold_rel=0.05,
+        exclude_border=False,
     )
 
     if len(coordinates) < num_bugs:
         print(f"[Warnung] Nur {len(coordinates)} lokale Maxima gefunden, ergänze auf {num_bugs}.")
 
-        def is_far_enough(new_coord, existing_coords, min_dist=5):
+        def is_far_enough(new_coord, existing_coords, min_dist=2):
             if len(existing_coords) == 0:
                 return True
             dists = cdist([new_coord], existing_coords)
@@ -80,6 +105,18 @@ def coords_from_heatmap(heatmap, num_bugs, original_size):
         coords = np.vstack([coords, np.array([x_scaled, y_scaled])])
 
     return coords
+
+
+def find_local_maxima_custom(heatmap, num_bugs):
+    neighborhood = maximum_filter(heatmap, size=3)
+    peaks = (heatmap == neighborhood) & (heatmap > 0.05)  # threshold
+
+    peak_coords = np.column_stack(np.nonzero(peaks))
+    scores = heatmap[peaks]
+
+    # Sortieren nach Score und besten auswählen
+    topk_indices = np.argsort(-scores)[:num_bugs]
+    return peak_coords[topk_indices]
 
 
 def collate_padding(batch):
@@ -148,7 +185,7 @@ def generate_heatmap(size, normalized_points, sigma=3):
             continue  # außerhalb ignorieren
 
         xx, yy = np.meshgrid(np.arange(W), np.arange(H))
-        gaussian = np.exp(-((xx - x)**2 + (yy - y)**2) / (2 * sigma**2))
+        gaussian = np.exp(-((xx - x) ** 2 + (yy - y) ** 2) / (2 * sigma ** 2))
         heatmap = np.maximum(heatmap, gaussian)
 
     return torch.from_numpy(heatmap).float()

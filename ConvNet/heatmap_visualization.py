@@ -2,6 +2,7 @@ import matplotlib
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
+from scipy.ndimage import gaussian_filter
 from torchvision.transforms import transforms
 
 from traco.ConvNet import augmentations, helper
@@ -13,17 +14,18 @@ matplotlib.use('TkAgg')
 target_size = (256, 256)
 
 transform = augmentations.JointCompose([augmentations.ResizeImagePositions(target_size),
-                                        augmentations.JointRandomFlip(0.5, 0.5),
+                                        #augmentations.JointRandomFlip(0.5, 0.5),
                                         augmentations.JointWrapper(transforms.ToTensor()),
-                                        augmentations.JointWrapper(
-                                            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
-                                        augmentations.JointWrapper(transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]))])
+                                        #augmentations.JointWrapper(
+                                            #transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
+                                        augmentations.JointWrapper(transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]))
+                                        ])
 
 model = HexbugHeatmapTracker()
-model.load_state_dict(torch.load("model_weights/hexbug_heatmap_tracker_v50_original.pth"))
+model.load_state_dict(torch.load("model_weights/heatmap_tracker_training_plus_v60.pth"))
 model.eval()
 
-dataset = HeatmapDataset("../training", "../training", transform=transform)
+dataset = HeatmapDataset("../leaderboard_data", "../leaderboard_data", transform=transform)
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 
 for i, (frame, heatmap) in enumerate(dataloader):
@@ -35,6 +37,9 @@ for i, (frame, heatmap) in enumerate(dataloader):
     image = frame[0]
     gt_heat = heatmap[0].squeeze()
     pred_heat = heatmap_prediction[0].squeeze()
+    if isinstance(pred_heat, torch.Tensor):
+        pred_heat = pred_heat.detach().cpu().numpy()
+    pred_heat = gaussian_filter(pred_heat, sigma=1)
     coords = helper.coords_from_heatmap(pred_heat, 3, (256, 256))
     print(coords)
 
@@ -59,7 +64,7 @@ for i, (frame, heatmap) in enumerate(dataloader):
 
     # Predicted Heatmap
     plt.subplot(1, 3, 3)
-    plt.imshow(pred_heat.numpy(), cmap='hot')
+    plt.imshow(pred_heat, cmap='hot')
     plt.title("Predicted Heatmap")
     plt.axis("off")
 
