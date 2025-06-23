@@ -12,7 +12,7 @@ from torchvision.transforms import transforms
 import augmentations
 import helper
 from traco.ConvNet.datasets import HeatmapDataset
-from traco.ConvNet.models import HexbugHeatmapTracker
+from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -122,8 +122,8 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
         epoch_training_loss.append(avg_training_loss)
         epoch_validation_loss.append(avg_validation_loss)
 
-        if t % 3 == 0:
-            torch.save(model.state_dict(), f"model_weights/hexbug_heatmap_tracker_v{t}.pth")
+        if t % 5 == 0:
+            torch.save(model.state_dict(), f"model_weights/big_hexbug_heatmap_tracker_v{t+40}.pth")
 
     return epoch_training_loss, epoch_validation_loss
 
@@ -141,9 +141,10 @@ def print_losscurve(training_losses, validation_losses, kfolds, save_path):
 
 def main():
     torch.cuda.empty_cache()
-    model = HexbugHeatmapTracker().to(device)
+    model = BigHexbugHeatmapTracker().to(device)
+    model.load_state_dict(torch.load("./model_weights/big_hexbug_heatmap_tracker_v40.pth"))
     # model.apply(init_weights_alexnet)
-    learning_rate = 0.001
+    learning_rate = 0.0001
     loss_fn = nn.MSELoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -170,13 +171,13 @@ def main():
     # data_path = os.path.join(tmpdir, "training")
 
     dataset = HeatmapDataset("../training", "../training", transform=transform)
-    # dataset = Subset(dataset, range(1000))
+    dataset = Subset(dataset, range(2000))
 
     kfolds = 1
     epochs = 2
 
-    model_save_path = f"./model_weights/hexbug_heatmap_tracker_folds{kfolds}_v{epochs}.pth"
-    loss_save_path = f"./plots/heatmap_tracking_loss_folds{kfolds}_v{epochs}.png"
+    model_save_path = f"./model_weights/big_hexbug_heatmap_tracker_folds{kfolds}_v{epochs+40}.pth"
+    loss_save_path = f"./plots/big_heatmap_tracking_loss_folds{kfolds}_v{epochs+40}.png"
 
     Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path)
 

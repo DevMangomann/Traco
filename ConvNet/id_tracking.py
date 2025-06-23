@@ -31,8 +31,9 @@ def update_tracks(current_coords, frame_id):
     max_distance = 300  # maximale Distanz zum Zuordnen
 
     # Nur aktive Tracks (nicht zu lange vermisst)
-    active_tracks = [t for t in tracks if t.missing <= max_missing]
-    track_coords = np.array([t.coord for t in active_tracks])
+    active_tracks = [(i, t) for i, t in enumerate(tracks) if t.missing <= max_missing]
+    track_coords = np.array([t.coord for _, t in active_tracks])
+    track_indices = [i for i, _ in active_tracks]  # Indizes in `tracks`
 
     matched_tracks = set()
     matched_coords = set()
@@ -47,18 +48,19 @@ def update_tracks(current_coords, frame_id):
 
         for i, j in zip(row_ind, col_ind):
             if cost_matrix[i, j] < max_distance:
-                active_tracks[i].update(current_coords[j], frame_id)
-                matched_tracks.add(i)
+                track_idx = track_indices[i]
+                tracks[track_idx].update(current_coords[j], frame_id)
+                matched_tracks.add(track_idx)
                 matched_coords.add(j)
 
         # Nicht gematchte Tracks markieren
-        for i in range(len(active_tracks)):
+        for i in track_indices:
             if i not in matched_tracks:
-                active_tracks[i].mark_missing()
+                tracks[i].mark_missing()
     else:
         # Kein Match möglich → alle aktiven Tracks markieren
-        for t in active_tracks:
-            t.mark_missing()
+        for i, _ in active_tracks:
+            tracks[i].mark_missing()
 
     # Neue Tracks für ungematchte Punkte erzeugen
     for i, coord in enumerate(current_coords):
@@ -67,9 +69,6 @@ def update_tracks(current_coords, frame_id):
             tracks.append(new_track)
             next_track_id += 1
 
-    # Optional: inaktive Tracks vollständig entfernen
-    # tracks = [t for t in tracks if t.missing <= max_missing]
-
-    # Rückgabe: aktuelle gültige Tracks
     return [(t.track_id, t.coord) for t in tracks if t.missing == 0]
+
 

@@ -7,7 +7,7 @@ from PIL import Image
 from matplotlib import pyplot as plt
 
 from traco.ConvNet import helper
-from traco.ConvNet.models import HexbugHeatmapTracker
+from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker
 
 matplotlib.use('TkAgg')
 plt.ion()  # Interaktiver Modus
@@ -16,9 +16,9 @@ video_path = "../leaderboard_data/test005.mp4"
 cap = cv2.VideoCapture(video_path)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-tracking_model = HexbugHeatmapTracker()
+tracking_model = BigHexbugHeatmapTracker()
 tracking_model.load_state_dict(
-    torch.load("model_weights/heatmap_tracker_training_plus_v60.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/big_hexbug_heatmap_tracker_v76.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
 transform = transforms.Compose([
@@ -71,9 +71,8 @@ while plt.fignum_exists(fig.number):
         with torch.no_grad():
             heatmap = tracking_model(predict_image)[0, 0]
 
-        num_bugs = torch.tensor([2])
+        num_bugs = torch.tensor([4])
         coords = helper.coords_from_heatmap(heatmap, num_bugs, (256, 256))
-        print(coords)
         heatmap_np = heatmap.cpu().numpy()
         heatmap_vis = (heatmap_np - heatmap_np.min()) / (heatmap_np.max() - heatmap_np.min() + 1e-8)
 

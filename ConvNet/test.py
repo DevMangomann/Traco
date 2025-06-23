@@ -8,7 +8,7 @@ from traco.ConvNet.datasets import VideoTrackingDataset, HeatmapDataset
 from traco.ConvNet.helper import get_image_size, denormalize_positions, collate_padding
 
 matplotlib.use('TkAgg')
-target_size = (512, 512)
+target_size = (256, 256)
 
 transform = augmentations.JointCompose([augmentations.ResizeImagePositions(target_size),
                                         augmentations.JointRandomFlip(0.5, 0.5),

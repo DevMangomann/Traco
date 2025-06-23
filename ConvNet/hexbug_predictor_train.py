@@ -34,8 +34,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 1 == 0:
-            print(device)
+        if batch % 10 == 0:
             print(f"Output: {pred[0]}  Label: {y[0]}")
             loss, current = loss.item(), batch * batch_size + len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
@@ -163,13 +162,15 @@ def main():
     learning_rate = 0.001
     loss_fn = nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer,
-        gamma=0.96
+        milestones=[40, 60],
+        gamma=0.1
     )
 
     transform = transforms.Compose([transforms.ToPILImage(), transforms.Resize((256, 256)), transforms.ToTensor(),
                                     transforms.RandomHorizontalFlip(0.5), transforms.RandomVerticalFlip(0.5),
+                                    transforms.RandomRotation(90),
                                     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02),
                                     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
@@ -178,10 +179,10 @@ def main():
     # data_path = os.path.join(tmpdir, "training")
 
     dataset = VideoPredictingDataset("../training", "../training", transform=transform)
-    # dataset = Subset(dataset, range(1000))
+    # dataset = Subset(dataset, range(2000))
 
     kfolds = 1
-    epochs = 2
+    epochs = 80
 
     model_save_path = f"./model_weights/hexbug_predictor_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/predicting_loss_folds{kfolds}_v{epochs}.png"
