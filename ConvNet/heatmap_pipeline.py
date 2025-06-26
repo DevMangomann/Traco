@@ -14,7 +14,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Lade das trainierte Modell
 predictor_model = HexbugPredictor()
-predictor_model.load_state_dict(torch.load("model_weights/predictor_training_plus_v60.pth", weights_only=True, map_location=device))
+predictor_model.load_state_dict(torch.load("model_weights/hexbug_predictor_folds1_v80.pth", weights_only=True, map_location=device))
 predictor_model.eval()  # Setze das Modell in den Evaluierungsmodus
 
 tracking_model = BigHexbugHeatmapTracker()
@@ -29,7 +29,7 @@ transform = transforms.Compose([
 ])
 
 # Pfad zum Video
-video_path = "../leaderboard_data/test003.mp4"
+video_path = "../leaderboard_data/test005.mp4"
 
 # Lade das Video
 cap = cv2.VideoCapture(video_path)
@@ -61,7 +61,7 @@ while cap.isOpened():
         # print(num_bugs)
         num_bugs = torch.argmax(num_bugs, dim=1)
         print(num_bugs)
-        num_bugs = torch.tensor([4])
+        # num_bugs = torch.tensor([4])
         heatmap = tracking_model(image)[0, 0]
 
     # Extrahiere die x- und y-Koordinaten aus der Vorhersage
