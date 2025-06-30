@@ -12,7 +12,7 @@ from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker
 matplotlib.use('TkAgg')
 plt.ion()  # Interaktiver Modus
 
-video_path = "../leaderboard_data/test005.mp4"
+video_path = "../leaderboard_data/test001.mp4"
 cap = cv2.VideoCapture(video_path)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -78,9 +78,11 @@ while plt.fignum_exists(fig.number):
 
         # Bild vorbereiten
         image_np = np.asarray(image) / 255.0
+        predict_image_vis = transform(image).cpu().numpy()
+        predict_image_vis = np.transpose(predict_image_vis, (1, 2, 0))  # [H, W, C]
 
         # Update der Plots
-        img1.set_data(image_np)
+        img1.set_data(predict_image_vis)
         img2.set_data(heatmap_np)
         img3.set_data(image_np)
 
