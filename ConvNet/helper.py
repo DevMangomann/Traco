@@ -7,14 +7,15 @@ from skimage.feature import peak_local_max
 
 
 def normalize_positions(frame_labels, original_size, target_size):
+    if not isinstance(frame_labels, torch.Tensor):
+        frame_labels = torch.from_numpy(frame_labels)
     oh, ow = original_size
     th, tw = target_size
-    labels = torch.tensor(frame_labels, dtype=torch.float32)
-    labels[:, 0] = labels[:, 0] * (tw / ow)
-    labels[:, 1] = labels[:, 1] * (th / oh)
-    labels[:, 0] = labels[:, 0] / tw * 2 - 1
-    labels[:, 1] = labels[:, 1] / th * 2 - 1
-    return labels
+    frame_labels[:, 0] = frame_labels[:, 0] * (tw / ow)
+    frame_labels[:, 1] = frame_labels[:, 1] * (th / oh)
+    frame_labels[:, 0] = frame_labels[:, 0] / tw * 2 - 1
+    frame_labels[:, 1] = frame_labels[:, 1] / th * 2 - 1
+    return frame_labels
 
 
 def denormalize_positions(labels, original_size, target_size):

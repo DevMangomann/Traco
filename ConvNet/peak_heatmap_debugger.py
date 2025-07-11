@@ -19,10 +19,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 tracking_model = BigHexbugHeatmapTracker_v2()
 tracking_model.load_state_dict(
-    torch.load("model_weights/big_hexbug_heatmap_tracker_v2_folds1_v60.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/big_hexbug_heatmap_tracker_v2_folds1_v2.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
-resize = (512, 512)
+resize = (384, 384)
 
 transform = transforms.Compose([
     transforms.Resize(resize),

@@ -7,21 +7,22 @@ import matplotlib.pyplot as plt
 import traco.ConvNet.augmentations as augmentations
 from traco.ConvNet.helper import get_image_size, denormalize_positions, generate_heatmap
 
-video_path = "../training/training089.mp4"
-label_path = "../training/training089.csv"
+video_path = "../leaderboard_data/test001.mp4"
+label_path = "../leaderboard_data/test001.csv"
 cap = cv2.VideoCapture(video_path)
 labels = pd.read_csv(label_path)
 
 # Beispiel-Transformationskette
-transform = augmentations.JointCompose([augmentations.ResizeImagePositions((512, 512)),
+transform = augmentations.JointCompose([augmentations.JointStretch(0.33, 0.1),
+                                            augmentations.ResizeImagePositions((512, 512)),
                                             #augmentations.JointWrapper(transforms.ToTensor()),
-                                            #augmentations.JointRandomFlip(0.5, 0.5),
-                                        augmentations.JointRotation(90.0),
+                                            augmentations.JointRandomFlip(0.5, 0.5),
+                                        augmentations.JointRotation(180.0),
                                             augmentations.JointWrapper(transforms.ToTensor()),
-                                            #augmentations.JointWrapper(
-                                            #    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
-                                            #augmentations.JointWrapper(
-                                            #    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])),
+                                            augmentations.JointWrapper(
+                                                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
+                                            augmentations.JointWrapper(
+                                                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])),
     ])
 
 paused = False

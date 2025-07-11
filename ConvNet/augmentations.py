@@ -1,6 +1,7 @@
 import math
 import random
 
+import PIL
 import numpy as np
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as tf
@@ -44,11 +45,12 @@ class JointRotation:
 
     def __call__(self, image, label_positions):
         # Zufälligen Drehwinkel wählen
+        height, width = get_image_size(image)
         rotate_degrees = random.uniform(-self.degrees, self.degrees)
         rotate_rad = math.radians(rotate_degrees)
 
         # Bild rotieren um das Zentrum
-        image = tf.rotate(image, angle=rotate_degrees, center=[image.width / 2, image.height / 2])
+        image = tf.rotate(image, angle=rotate_degrees, center=[width / 2, height / 2])
 
         # Punkte rotieren (Koordinaten im Bereich [-1, 1], also Ursprung = Bildzentrum)
         cos_r = math.cos(rotate_rad)
@@ -62,13 +64,53 @@ class JointRotation:
         return image, rotated_positions
 
 
+import random
+import torch
+import torchvision.transforms as transforms
+from PIL import Image
+
+class JointStretch:
+    def __init__(self, factor, prob):
+        self.factor = factor
+        self.prob = prob
+
+    def __call__(self, image, label_positions):
+        height, width = get_image_size(image)
+
+        if not isinstance(image, Image.Image):
+            image = transforms.ToPILImage()(image)
+
+        if random.random() < self.prob:
+            # Stretch in der Höhe
+            new_height = int(self.factor * height)
+            stretched_image = transforms.Resize((new_height, width))(image)
+
+            # Padding berechnen, um auf Originalgröße zurückzukommen
+            pad_top = (height - new_height) // 2
+            pad_bottom = height - new_height - pad_top
+
+            # Nur wenn gestretcht wurde, sonst kein Padding nötig
+            padded_image = transforms.Pad((0, pad_top, 0, pad_bottom), fill=0)(stretched_image)
+
+            # Labels: zuerst Stretch, dann Offset durch Padding
+            labels = torch.tensor(label_positions, dtype=torch.float32)
+            labels[:, 1] *= (new_height / height)  # y-Koordinaten-Stretch
+            labels[:, 1] += pad_top  # y-Offset durch Padding
+
+            return padded_image, labels
+
+        return image, label_positions
+
+
+
 class ResizeImagePositions:
     def __init__(self, target_size):
         self.target_size = target_size
 
     def __call__(self, image, label_positions):
         height, width = get_image_size(image)
-        image = transforms.ToPILImage()(image)
+        if not isinstance(image, PIL.Image.Image):
+            image = transforms.ToPILImage()(image)
         image = transforms.Resize(self.target_size)(image)
         label_positions = normalize_positions(label_positions, (height, width), self.target_size)
 

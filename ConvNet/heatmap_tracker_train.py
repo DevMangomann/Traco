@@ -114,7 +114,7 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
         avg_training_loss = sum(training_loss) / len(training_loss)
         avg_validation_loss = sum(validation_loss) / len(validation_loss)
 
-        scheduler.step(avg_validation_loss)
+        scheduler.step()
         print(scheduler.get_last_lr())
 
         print(f"Train Error: \n Avg Train loss: {avg_training_loss:.6f} \n")
@@ -123,7 +123,7 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
         epoch_validation_loss.append(avg_validation_loss)
 
         if t % 5 == 0:
-            torch.save(model.state_dict(), f"model_weights/big_hexbug_heatmap_tracker_v2_v{t+40}.pth")
+            torch.save(model.state_dict(), f"model_weights/big_hexbug_heatmap_tracker_v2_v{t}.pth")
 
     return epoch_training_loss, epoch_validation_loss
 
@@ -147,15 +147,17 @@ def main():
     learning_rate = 0.001
     loss_fn = nn.MSELoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer,
-        gamma=0.95,
+        milestones=[30, 50],
+        gamma=0.1
     )
 
-    transform = augmentations.JointCompose([augmentations.ResizeImagePositions((512, 512)),
+    transform = augmentations.JointCompose([augmentations.JointStretch(0.33, 0.1),
+                                            augmentations.ResizeImagePositions((384, 384)),
                                             # augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointRandomFlip(0.5, 0.5),
-                                            augmentations.JointRotation(180),
+                                            augmentations.JointRotation(180.0),
                                             augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointWrapper(
                                                 transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2,
@@ -172,10 +174,10 @@ def main():
     dataset = Subset(dataset, range(200))
 
     kfolds = 1
-    epochs = 2
+    epochs = 70
 
-    model_save_path = f"./model_weights/big_hexbug_heatmap_tracker_v2_folds{kfolds}_v{epochs+40}.pth"
-    loss_save_path = f"./plots/big_heatmap_tracking_v2_loss_folds{kfolds}_v{epochs+40}.png"
+    model_save_path = f"./model_weights/big_hexbug_heatmap_tracker_v2_folds{kfolds}_v{epochs}.pth"
+    loss_save_path = f"./plots/big_heatmap_tracking_v2_loss_folds{kfolds}_v{epochs}.png"
 
     Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path)
 
