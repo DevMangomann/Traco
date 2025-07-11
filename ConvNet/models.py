@@ -216,6 +216,83 @@ class BigHexbugHeatmapTracker(nn.Module):
         return self.final_conv(x)
 
 
+class BigHexbugHeatmapTracker_v2(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(3, 64, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 64, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(64),
+            nn.MaxPool2d((2, 2), stride=2),
+            nn.Conv2d(64, 128, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.Conv2d(128, 128, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.MaxPool2d((2, 2), stride=2),
+            nn.Conv2d(128, 192, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(192),
+            nn.Conv2d(192, 192, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(192),
+            nn.MaxPool2d((2, 2), stride=2),
+            nn.Conv2d(192, 256, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256, 256, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(256),
+            nn.MaxPool2d((2, 2), stride=2),
+            nn.Conv2d(256, 320, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(320),
+            nn.Conv2d(320, 320, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(320),
+        )
+        self.upsampling = nn.Sequential(
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
+            nn.Conv2d(320, 256, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256, 256, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(256),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
+            nn.Conv2d(256, 192, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(192),
+            nn.Conv2d(192, 192, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(192),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
+            nn.Conv2d(192, 128, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.Conv2d(128, 128, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
+            nn.Conv2d(128, 64, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 64, 3, padding=1, stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(64),
+        )
+        self.final_conv = nn.Conv2d(64, 1, 1, padding=0, stride=1)
+
+    def forward(self, image_tensor):
+        x = self.conv(image_tensor)
+        x = self.upsampling(x)
+        return self.final_conv(x)
+
+
 def init_weights_alexnet(m):
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
         init.normal_(m.weight, mean=0.0, std=0.01)

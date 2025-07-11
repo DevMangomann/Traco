@@ -7,37 +7,40 @@ from PIL import Image
 from matplotlib import pyplot as plt
 
 from traco.ConvNet import helper
-from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker
+from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker, BigHexbugHeatmapTracker_v2
 
 matplotlib.use('TkAgg')
 plt.ion()  # Interaktiver Modus
 
-video_path = "../leaderboard_data/test001.mp4"
+video_path = "../leaderboard_data/test003.mp4"
+num_bugs = 4
 cap = cv2.VideoCapture(video_path)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-tracking_model = BigHexbugHeatmapTracker()
+tracking_model = BigHexbugHeatmapTracker_v2()
 tracking_model.load_state_dict(
-    torch.load("model_weights/big_hexbug_heatmap_tracker_v76.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/big_hexbug_heatmap_tracker_v2_folds1_v60.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
+resize = (512, 512)
+
 transform = transforms.Compose([
-    transforms.Resize((256, 256)),
+    transforms.Resize(resize),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
 # Initiale Visualisierung vorbereiten
 fig, axs = plt.subplots(1, 3, figsize=(15, 5))
-img1 = axs[0].imshow(np.zeros((256, 256, 3)))
+img1 = axs[0].imshow(np.zeros((512, 512, 3)))
 axs[0].set_title("Frame (resized)")
 axs[0].axis("off")
 
-img2 = axs[1].imshow(np.zeros((256, 256)), cmap="hot", vmin=0, vmax=1)
+img2 = axs[1].imshow(np.zeros(resize), cmap="hot", vmin=0, vmax=1)
 axs[1].set_title("Predicted Heatmap")
 axs[1].axis("off")
 
-img3 = axs[2].imshow(np.zeros((256, 256, 3)))
+img3 = axs[2].imshow(np.zeros((512, 512, 3)))
 scatter = axs[2].scatter([], [], c="cyan", s=40, marker="x", label="Peaks")
 axs[2].set_title("Peaks on Frame")
 axs[2].legend()
@@ -71,8 +74,8 @@ while plt.fignum_exists(fig.number):
         with torch.no_grad():
             heatmap = tracking_model(predict_image)[0, 0]
 
-        num_bugs = torch.tensor([4])
-        coords = helper.coords_from_heatmap(heatmap, num_bugs, (256, 256))
+        num_bugs = torch.tensor([num_bugs])
+        coords = helper.coords_from_heatmap(heatmap, num_bugs, resize)
         heatmap_np = heatmap.cpu().numpy()
         heatmap_vis = (heatmap_np - heatmap_np.min()) / (heatmap_np.max() - heatmap_np.min() + 1e-8)
 

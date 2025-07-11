@@ -12,12 +12,12 @@ from torchvision.transforms import transforms
 import augmentations
 import helper
 from traco.ConvNet.datasets import HeatmapDataset
-from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker
+from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker, BigHexbugHeatmapTracker_v2
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-batch_size = 32
+batch_size = 16
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
@@ -123,7 +123,7 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
         epoch_validation_loss.append(avg_validation_loss)
 
         if t % 5 == 0:
-            torch.save(model.state_dict(), f"model_weights/big_hexbug_heatmap_tracker_v{t+40}.pth")
+            torch.save(model.state_dict(), f"model_weights/big_hexbug_heatmap_tracker_v2_v{t+40}.pth")
 
     return epoch_training_loss, epoch_validation_loss
 
@@ -141,23 +141,21 @@ def print_losscurve(training_losses, validation_losses, kfolds, save_path):
 
 def main():
     torch.cuda.empty_cache()
-    model = BigHexbugHeatmapTracker().to(device)
-    model.load_state_dict(torch.load("./model_weights/big_hexbug_heatmap_tracker_v40.pth"))
+    model = BigHexbugHeatmapTracker_v2().to(device)
+    #model.load_state_dict(torch.load("./model_weights/big_hexbug_heatmap_tracker_v40.pth"))
     # model.apply(init_weights_alexnet)
-    learning_rate = 0.0001
+    learning_rate = 0.001
     loss_fn = nn.MSELoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(
         optimizer,
-        mode='min',
-        factor=0.1,
-        patience=10,
+        gamma=0.95,
     )
 
-    transform = augmentations.JointCompose([augmentations.ResizeImagePositions((256, 256)),
+    transform = augmentations.JointCompose([augmentations.ResizeImagePositions((512, 512)),
                                             # augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointRandomFlip(0.5, 0.5),
-                                            augmentations.JointRotation(90),
+                                            augmentations.JointRotation(180),
                                             augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointWrapper(
                                                 transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2,
@@ -171,13 +169,13 @@ def main():
     # data_path = os.path.join(tmpdir, "training")
 
     dataset = HeatmapDataset("../training", "../training", transform=transform)
-    dataset = Subset(dataset, range(2000))
+    dataset = Subset(dataset, range(200))
 
     kfolds = 1
     epochs = 2
 
-    model_save_path = f"./model_weights/big_hexbug_heatmap_tracker_folds{kfolds}_v{epochs+40}.pth"
-    loss_save_path = f"./plots/big_heatmap_tracking_loss_folds{kfolds}_v{epochs+40}.png"
+    model_save_path = f"./model_weights/big_hexbug_heatmap_tracker_v2_folds{kfolds}_v{epochs+40}.pth"
+    loss_save_path = f"./plots/big_heatmap_tracking_v2_loss_folds{kfolds}_v{epochs+40}.png"
 
     Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path)
 

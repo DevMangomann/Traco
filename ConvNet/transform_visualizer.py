@@ -13,7 +13,7 @@ cap = cv2.VideoCapture(video_path)
 labels = pd.read_csv(label_path)
 
 # Beispiel-Transformationskette
-transform = augmentations.JointCompose([augmentations.ResizeImagePositions((256, 256)),
+transform = augmentations.JointCompose([augmentations.ResizeImagePositions((512, 512)),
                                             #augmentations.JointWrapper(transforms.ToTensor()),
                                             #augmentations.JointRandomFlip(0.5, 0.5),
                                         augmentations.JointRotation(90.0),

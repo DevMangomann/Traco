@@ -8,7 +8,7 @@ from torchvision import transforms
 
 from traco.ConvNet import helper
 from traco.ConvNet.id_tracking import update_tracks
-from traco.ConvNet.models import HexbugHeatmapTracker, HexbugPredictor, BigHexbugHeatmapTracker
+from traco.ConvNet.models import HexbugHeatmapTracker, HexbugPredictor, BigHexbugHeatmapTracker, BigHexbugHeatmapTracker_v2
 from kalman_tracking import KalmanMultiObjectTracker
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -19,27 +19,28 @@ predictor_model.load_state_dict(
     torch.load("model_weights/hexbug_predictor_folds1_v80.pth", weights_only=True, map_location=device))
 predictor_model.eval()  # Setze das Modell in den Evaluierungsmodus
 
-tracking_model = BigHexbugHeatmapTracker()
+tracking_model = BigHexbugHeatmapTracker_v2()
 tracking_model.load_state_dict(
-    torch.load("model_weights/big_hexbug_heatmap_tracker_v76.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/big_hexbug_heatmap_tracker_v2_folds1_v60.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
 # Definiere die Transformationen für die Eingabebilder
 transform = transforms.Compose([
-    transforms.Resize((256, 256)),
+    transforms.Resize((512, 512)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
 # Pfad zum Video
 video_path = "../leaderboard_data/test003.mp4"
+max_bugs = 4
 
 # Lade das Video
 cap = cv2.VideoCapture(video_path)
 
 # Erstelle eine leere Liste, um die Vorhersagen zu speichern
 predictions = np.empty((0, 5))
-kalman_tracker = KalmanMultiObjectTracker()
+kalman_tracker = KalmanMultiObjectTracker(max_bugs)
 
 # Verarbeite jeden Frame des Videos
 frame_count = 0
@@ -65,7 +66,7 @@ while cap.isOpened():
         # print(num_bugs)
         # num_bugs = torch.argmax(num_bugs, dim=1)
         # print(num_bugs)
-        num_bugs = torch.tensor([4])
+        num_bugs = torch.tensor([max_bugs])
         heatmap = tracking_model(image)[0, 0]
 
     # Extrahiere die x- und y-Koordinaten aus der Vorhersage
