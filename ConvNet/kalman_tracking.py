@@ -40,7 +40,7 @@ class Track:
 
 
 class KalmanMultiObjectTracker:
-    def __init__(self, max_bugs, max_age=20, dist_thresh=300.0):  # z.B. 50 Pixel Abstand
+    def __init__(self, max_bugs, max_age=20, dist_thresh=1000.0):
         self.max_bugs = max_bugs
         self.tracks = []
         self.next_id = 0
