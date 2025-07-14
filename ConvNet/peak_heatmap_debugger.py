@@ -12,8 +12,8 @@ from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker, 
 matplotlib.use('TkAgg')
 plt.ion()  # Interaktiver Modus
 
-video_path = "../leaderboard_data/test003.mp4"
-num_bugs = 4
+video_path = "../leaderboard_data/test001.mp4"
+num_bugs = 3
 cap = cv2.VideoCapture(video_path)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -22,7 +22,7 @@ tracking_model.load_state_dict(
     torch.load("model_weights/big_hexbug_heatmap_tracker_v2_folds1_v70.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
-resize = (384, 384)
+resize = (512, 512)
 
 transform = transforms.Compose([
     transforms.Resize(resize),
@@ -32,7 +32,7 @@ transform = transforms.Compose([
 
 # Initiale Visualisierung vorbereiten
 fig, axs = plt.subplots(1, 3, figsize=(15, 5))
-img1 = axs[0].imshow(np.zeros((384, 384, 3)))
+img1 = axs[0].imshow(np.zeros((512, 512, 3)))
 axs[0].set_title("Frame (resized)")
 axs[0].axis("off")
 
@@ -40,7 +40,7 @@ img2 = axs[1].imshow(np.zeros(resize), cmap="hot", vmin=0, vmax=1)
 axs[1].set_title("Predicted Heatmap")
 axs[1].axis("off")
 
-img3 = axs[2].imshow(np.zeros((384, 384, 3)))
+img3 = axs[2].imshow(np.zeros((512, 512, 3)))
 scatter = axs[2].scatter([], [], c="cyan", s=40, marker="x", label="Peaks")
 axs[2].set_title("Peaks on Frame")
 axs[2].legend()

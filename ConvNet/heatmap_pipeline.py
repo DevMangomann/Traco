@@ -21,7 +21,7 @@ predictor_model.eval()  # Setze das Modell in den Evaluierungsmodus
 
 tracking_model = BigHexbugHeatmapTracker_v2()
 tracking_model.load_state_dict(
-    torch.load("model_weights/big_hexbug_heatmap_tracker_v2_folds1_v60.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/big_hexbug_heatmap_tracker_v2_folds1_v70.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
 # Definiere die Transformationen für die Eingabebilder
@@ -74,7 +74,7 @@ while cap.isOpened():
     original_height, original_width = helper.get_image_size(frame)
     coords = helper.coords_from_heatmap(heatmap, num_bugs, (original_height, original_width))
 
-    hexbug_tracks = kalman_tracker.update(coords, frame_count)
+    hexbug_tracks = kalman_tracker.update(coords, (original_height, original_width))
     for hexbug in hexbug_tracks:
         hex_id, hex_coords = hexbug
         new_row = np.array(

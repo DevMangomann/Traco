@@ -47,7 +47,8 @@ class KalmanMultiObjectTracker:
         self.max_age = max_age
         self.dist_thresh = dist_thresh
 
-    def update(self, detections, frame_id=None):
+    def update(self, detections, frame_size):
+        height, width = frame_size
         detections = np.array(detections)
         last_dets = np.array([t.last_detection for t in self.tracks])
 
@@ -99,6 +100,9 @@ class KalmanMultiObjectTracker:
             if t.time_since_update == 0 and t.last_detection is not None:
                 results.append((t.id, t.last_detection))  # Detektion zugewiesen
             else:
-                results.append((t.id, t.kf.x[:2].flatten()))  # Prediction-Fallback
-                t.last_detection = t.kf.x[:2].flatten()
+                kalman_detection = t.kf.x[:2].flatten()
+                kalman_detection[0] = np.clip(kalman_detection[0], 0, width)
+                kalman_detection[1] = np.clip(kalman_detection[1], 0, height)
+                results.append((t.id, kalman_detection))  # Prediction-Fallback
+                t.last_detection = kalman_detection
         return results
