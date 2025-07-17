@@ -12,8 +12,8 @@ from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker, 
 matplotlib.use('TkAgg')
 plt.ion()  # Interaktiver Modus
 
-video_path = "../leaderboard_data/test001.mp4"
-num_bugs = 3
+video_path = "../leaderboard_data/test003.mp4"
+num_bugs = 4
 cap = cv2.VideoCapture(video_path)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
