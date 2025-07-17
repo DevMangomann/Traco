@@ -59,7 +59,7 @@ def test_loop(dataloader, model, loss_fn):
 
 def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path):
     if kfolds == 1:
-        train_size = int(0.8 * len(dataset))
+        train_size = int(1.0 * len(dataset))
         val_size = len(dataset) - train_size
         train_set, val_set = random_split(dataset, [train_size, val_size])
         train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True,
@@ -110,15 +110,16 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
         print(f"Epoch {t + 1}\n-------------------------------")
 
         training_loss = train_loop(train_dataloader, model, loss_fn, optimizer)
-        validation_loss = test_loop(val_dataloader, model, loss_fn)
+        #validation_loss = test_loop(val_dataloader, model, loss_fn)
         avg_training_loss = sum(training_loss) / len(training_loss)
-        avg_validation_loss = sum(validation_loss) / len(validation_loss)
+        #avg_validation_loss = sum(validation_loss) / len(validation_loss)
+        avg_validation_loss = []
 
         scheduler.step()
         print(scheduler.get_last_lr())
 
         print(f"Train Error: \n Avg Train loss: {avg_training_loss:.6f} \n")
-        print(f"Test Error: \n Avg loss: {avg_validation_loss:.6f} \n")
+        #print(f"Test Error: \n Avg loss: {avg_validation_loss:.6f} \n")
         epoch_training_loss.append(avg_training_loss)
         epoch_validation_loss.append(avg_validation_loss)
 
@@ -174,7 +175,7 @@ def main():
     dataset = Subset(dataset, range(200))
 
     kfolds = 1
-    epochs = 70
+    epochs = 2
 
     model_save_path = f"./model_weights/big_hexbug_heatmap_tracker_v2_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/big_heatmap_tracking_v2_loss_folds{kfolds}_v{epochs}.png"
