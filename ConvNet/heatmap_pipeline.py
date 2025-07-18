@@ -32,7 +32,7 @@ transform = transforms.Compose([
 ])
 
 # Pfad zum Video
-video_path = "../leaderboard_data/test003.mp4"
+video_path = "../leaderboard_data/test006_20s.mp4"
 max_bugs = 4
 
 # Lade das Video
@@ -50,6 +50,9 @@ while cap.isOpened():
     if not ret:
         break
 
+    if frame_count % 10 == 0:
+        print(frame_count)
+
     # Konvertiere den Frame in ein PIL-Bild
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     image = Image.fromarray(frame)
@@ -62,10 +65,10 @@ while cap.isOpened():
 
     # Führe die Vorhersage mit dem Modell aus
     with torch.no_grad():
-        # num_bugs = predictor_model(image)
-        # print(num_bugs)
-        # num_bugs = torch.argmax(num_bugs, dim=1)
-        # print(num_bugs)
+        #num_bugs = predictor_model(image)
+        #print(num_bugs)
+        #num_bugs = torch.argmax(num_bugs, dim=1)
+        #print(num_bugs)
         num_bugs = torch.tensor([max_bugs])
         heatmap = tracking_model(image)[0, 0]
 

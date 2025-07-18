@@ -322,8 +322,8 @@ if __name__ == "__main__":
     # parser.add_argument("path_to_gt", help="path to the ground truth file")
     # parser.add_argument("--log", help="log the score", action="store_true")
     # args = parser.parse_args()
-    path_pred = "ConvNet/predictions/test001_prediction.csv"
-    path_test = "leaderboard_data/test001.csv"
+    path_pred = "ConvNet/predictions/test006_20s_prediction.csv"
+    path_test = "leaderboard_data/test006_20s.csv"
     #teams = ["BugHunters","HacksBug","HexagonHackers","HexTrackers","JustAJoke","PitchCrawlers","StrafeSnipers"]
     #run_on_folder("HexagonHackers")
 

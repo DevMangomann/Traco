@@ -3,6 +3,7 @@ import torch
 from filterpy.kalman import KalmanFilter
 from scipy.optimize import linear_sum_assignment
 
+forbidden_tracks = []
 
 class Track:
     def __init__(self, track_id, initial_pos):
@@ -11,6 +12,7 @@ class Track:
         self.age = 0
         self.time_since_update = 0
         self.last_detection = initial_pos
+        self.stationary_frames = 0
 
     def _init_kf(self, pos):
         kf = KalmanFilter(dim_x=4, dim_z=2)
@@ -34,13 +36,14 @@ class Track:
         return self.kf.x[:2].flatten()
 
     def update(self, pos):
+
         self.kf.update(pos)
         self.last_detection = pos
         self.time_since_update = 0
 
 
 class KalmanMultiObjectTracker:
-    def __init__(self, max_bugs, max_age=20, dist_thresh=1000.0):
+    def __init__(self, max_bugs, max_age=10, dist_thresh=1000.0):
         self.max_bugs = max_bugs
         self.tracks = []
         self.next_id = 0
