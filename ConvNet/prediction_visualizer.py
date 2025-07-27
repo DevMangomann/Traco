@@ -5,7 +5,7 @@ import numpy as np
 from collections import defaultdict
 
 # Parameter
-csv_path = "../leaderboard_data/test003.csv"
+csv_path = "../training/training0104.csv"
 num_bugs = 4
 video_path = csv_path.replace("csv", "mp4")
 

@@ -1,9 +1,7 @@
 import math
-import random
 
 import PIL
 import numpy as np
-import torchvision.transforms as transforms
 import torchvision.transforms.functional as tf
 
 from traco.ConvNet.helper import get_image_size, normalize_positions
@@ -69,6 +67,7 @@ import torch
 import torchvision.transforms as transforms
 from PIL import Image
 
+
 class JointStretch:
     def __init__(self, factor, prob):
         self.factor = factor
@@ -100,7 +99,6 @@ class JointStretch:
             return padded_image, labels
 
         return image, label_positions
-
 
 
 class ResizeImagePositions:

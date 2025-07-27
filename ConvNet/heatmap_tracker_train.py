@@ -148,10 +148,9 @@ def main():
     learning_rate = 0.001
     loss_fn = nn.MSELoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(
         optimizer,
-        milestones=[30, 50],
-        gamma=0.1
+        gamma=0.95,
     )
 
     transform = augmentations.JointCompose([augmentations.JointStretch(0.33, 0.1),

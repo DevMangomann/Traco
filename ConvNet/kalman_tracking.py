@@ -3,16 +3,30 @@ import torch
 from filterpy.kalman import KalmanFilter
 from scipy.optimize import linear_sum_assignment
 
-forbidden_tracks = []
+import helper
+
+
+def average_color_around(pos, frame, radius):
+    x, y = int(pos[0]), int(pos[1])
+    h, w = helper.get_image_size(frame)
+    x1 = max(0, x - radius)
+    x2 = min(w, x + radius + 1)
+    y1 = max(0, y - radius)
+    y2 = min(h, y + radius + 1)
+    region = frame[y1:y2, x1:x2]
+    if region.size == 0:
+        return np.array([0, 0, 0])
+    return region.reshape(-1, 3).mean(axis=0)
+
 
 class Track:
-    def __init__(self, track_id, initial_pos):
+    def __init__(self, track_id, initial_pos, color):
         self.id = track_id
         self.kf = self._init_kf(initial_pos)
         self.age = 0
         self.time_since_update = 0
         self.last_detection = initial_pos
-        self.stationary_frames = 0
+        self.color = color
 
     def _init_kf(self, pos):
         kf = KalmanFilter(dim_x=4, dim_z=2)
@@ -35,54 +49,76 @@ class Track:
         self.time_since_update += 1
         return self.kf.x[:2].flatten()
 
-    def update(self, pos):
-
+    def update(self, pos, frame):
         self.kf.update(pos)
         self.last_detection = pos
+        self.color = average_color_around(pos, frame, 2)
         self.time_since_update = 0
 
 
 class KalmanMultiObjectTracker:
-    def __init__(self, max_bugs, max_age=10, dist_thresh=1000.0):
+    def __init__(self, max_bugs, max_age=50, dist_thresh=300.0):
         self.max_bugs = max_bugs
         self.tracks = []
         self.next_id = 0
         self.max_age = max_age
         self.dist_thresh = dist_thresh
 
-    def update(self, detections, frame_size):
-        height, width = frame_size
+    def update(self, detections, frame):
+        height, width = helper.get_image_size(frame)
         detections = np.array(detections)
-        last_dets = np.array([t.last_detection for t in self.tracks])
 
         # Step 1: Predict all tracks
         for track in self.tracks:
             track.predict()
 
-        if len(self.tracks) == 0:
+        if len(detections) == 0:
+            # Keine Detections: alle Tracks altern lassen
+            for track in self.tracks:
+                track.time_since_update += 1
+
+            # Alte Tracks entfernen
+            self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_age]
+
+        elif len(self.tracks) == 0:
+            # Wenn keine bestehenden Tracks vorhanden sind, neue erstellen
             for det in detections:
-                self.tracks.append(Track(self.next_id, det))
+                color = average_color_around(det, frame, 10)
+                self.tracks.append(Track(self.next_id, det, color))
                 self.next_id += 1
+
         else:
-            # Step 2: Compute cost matrix (euclidean distance)
+            last_dets = np.array([t.last_detection for t in self.tracks])
+
+            # Step 2: Compute cost matrix
             detect_matrix = torch.cdist(
                 torch.tensor(last_dets, dtype=torch.float32),
                 torch.tensor(detections, dtype=torch.float32)
             ).numpy()
 
+            track_colors = np.array([t.color for t in self.tracks])
+            det_colors = np.array([average_color_around(det, frame, 10) for det in detections])
+
+            if len(det_colors) == 0:
+                color_matrix = np.zeros_like(detect_matrix)
+            else:
+                color_matrix = np.linalg.norm(track_colors[:, None, :] - det_colors[None, :, :], axis=2)
+
+            combined_matrix = detect_matrix + 0.3 * color_matrix
+
             # Step 3: Hungarian matching
-            row_detect, col_detect = linear_sum_assignment(detect_matrix)
+            row_detect, col_detect = linear_sum_assignment(combined_matrix)
 
             assigned_tracks = set()
             assigned_detections = set()
 
             for i, j in zip(row_detect, col_detect):
                 if detect_matrix[i, j] < self.dist_thresh:
-                    self.tracks[i].update(detections[j])
+                    self.tracks[i].update(detections[j], frame)
                     assigned_tracks.add(i)
                     assigned_detections.add(j)
 
-            # Step 5: Unmatched tracks (no update)
+            # Step 5: Unmatched tracks
             for i, track in enumerate(self.tracks):
                 if i not in assigned_tracks:
                     track.time_since_update += 1
@@ -94,18 +130,23 @@ class KalmanMultiObjectTracker:
             if len(self.tracks) < self.max_bugs:
                 for i, det in enumerate(detections):
                     if i not in assigned_detections:
-                        self.tracks.append(Track(self.next_id, det))
+                        color = average_color_around(det, frame, 10)
+                        self.tracks.append(Track(self.next_id, det, color))
                         self.next_id += 1
 
         # Step 8: Prepare output
         results = []
         for t in self.tracks:
             if t.time_since_update == 0 and t.last_detection is not None:
-                results.append((t.id, t.last_detection))  # Detektion zugewiesen
+                results.append((t.id, t.last_detection))
             else:
                 kalman_detection = t.kf.x[:2].flatten()
-                kalman_detection[0] = np.clip(kalman_detection[0], 0, width)
-                kalman_detection[1] = np.clip(kalman_detection[1], 0, height)
-                results.append((t.id, kalman_detection))  # Prediction-Fallback
+                x, y = kalman_detection[0], kalman_detection[1]
+                if x < 0 or y < 0 or x >= width or y >= height:
+                    kalman_detection[0] = np.clip(kalman_detection[0], 0, width)
+                    kalman_detection[1] = np.clip(kalman_detection[1], 0, height)
+                else:
+                    results.append((t.id, kalman_detection))
                 t.last_detection = kalman_detection
         return results
+

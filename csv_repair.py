@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Paths
-label_path = "./training/training0103.csv"
+label_path = "training/training01031.csv"
 merge_path = "./training/training01032.csv"
 
 # Load CSVs

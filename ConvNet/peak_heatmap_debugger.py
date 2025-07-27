@@ -12,14 +12,14 @@ from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker, 
 matplotlib.use('TkAgg')
 plt.ion()  # Interaktiver Modus
 
-video_path = "../leaderboard_data/test006_20s.mp4"
-num_bugs = 4
+video_path = "./final_tests/test016.mp4"
+num_bugs = 3
 cap = cv2.VideoCapture(video_path)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 tracking_model = BigHexbugHeatmapTracker_v2()
 tracking_model.load_state_dict(
-    torch.load("model_weights/big_hexbug_heatmap_tracker_v2_folds1_v70.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/big_hexbug_heatmap_tracker_v2_folds1_v80.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
 resize = (512, 512)

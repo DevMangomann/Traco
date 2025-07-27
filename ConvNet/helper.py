@@ -67,38 +67,43 @@ def coords_from_heatmap(heatmap, num_bugs, original_size):
 
     heatmap = gaussian_filter(heatmap, sigma=1)
 
-    # Erst lokale Maxima suchen
+    # Lokale Maxima über Threshold
     coordinates = peak_local_max(
         heatmap,
-        min_distance=2,
+        min_distance=20,
         num_peaks=num_bugs,
+        threshold_abs=0.01,
         threshold_rel=0.05,
-        exclude_border=False,
+        exclude_border=False
     )
 
     if len(coordinates) < num_bugs:
         print(f"[Warnung] Nur {len(coordinates)} lokale Maxima gefunden, ergänze auf {num_bugs}.")
 
-        def is_far_enough(new_coord, existing_coords, min_dist=2):
+        def is_far_enough(new_coord, existing_coords, min_dist=20):
             if len(existing_coords) == 0:
                 return True
             dists = cdist([new_coord], existing_coords)
             return np.all(dists > min_dist)
 
         flat = heatmap.flatten()
-        topk_indices = np.argpartition(flat, -num_bugs * 2)[-num_bugs * 2:]  # mehr holen für Sicherheit
-        topk_indices = topk_indices[np.argsort(-flat[topk_indices])]
+        # Nur Indizes mit Werten > 0.05 berücksichtigen
+        valid_indices = np.where(flat > 0.01)[0]
+        if valid_indices.size == 0:
+            return np.empty((0, 2), dtype=np.float32)  # keine brauchbaren Peaks
+
+        topk_indices = valid_indices[np.argsort(-flat[valid_indices])]
         topk_coords = np.array([np.unravel_index(idx, heatmap.shape) for idx in topk_indices])
 
         existing = np.array(coordinates)
         for yx in topk_coords:
-            if is_far_enough(yx, existing, min_dist=5):
+            if is_far_enough(yx, existing, min_dist=20):
                 coordinates = np.vstack([coordinates, yx])
                 existing = np.vstack([existing, yx])
             if len(coordinates) == num_bugs:
                 break
 
-    # Skalieren auf Originalgröße
+    # Auf Originalbildgröße zurückskalieren
     coords = np.empty((0, 2), dtype=np.float32)
     for y, x in coordinates[:num_bugs]:
         x_scaled = int(x * W_orig / W_map)
