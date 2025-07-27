@@ -11,8 +11,8 @@ from torchvision.transforms import transforms
 
 import augmentations
 import helper
-from traco.ConvNet.datasets import HeatmapDataset
-from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker, BigHexbugHeatmapTracker_v2
+from traco.ConvNet.datasets import HeatmapTrackingDataset
+from traco.ConvNet.models import HeatmapTracker, BigHeatmapTracker, BiggerHeatmapTracker
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -79,15 +79,18 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler
         fold_train_loss = [0.0] * epochs
         fold_val_loss = [0.0] * epochs
         for fold, (train_idx, val_idx) in enumerate(kf.split(indices)):
-            model = HexbugHeatmapTracker().to(device)
+            model = BiggerHeatmapTracker().to(device)
             # model.apply(init_weights_he)
 
             print(f"\n=== Fold {fold + 1} / {kfolds} ===")
 
             train_subset = Subset(dataset, train_idx)
             val_subset = Subset(dataset, val_idx)
-            train_dataloader = DataLoader(train_subset, batch_size=batch_size, shuffle=True)
-            val_dataloader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
+            train_dataloader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=4,
+                                          pin_memory=True,
+                                          prefetch_factor=4)
+            val_dataloader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True,
+                                        prefetch_factor=4)
 
             epoch_training_loss, epoch_validation_loss = epoch_training(epochs, train_dataloader, val_dataloader, model,
                                                                         loss_fn, optimizer, scheduler)
@@ -110,28 +113,27 @@ def epoch_training(epochs, train_dataloader, val_dataloader, model, loss_fn, opt
         print(f"Epoch {t + 1}\n-------------------------------")
 
         training_loss = train_loop(train_dataloader, model, loss_fn, optimizer)
-        #validation_loss = test_loop(val_dataloader, model, loss_fn)
+        validation_loss = test_loop(val_dataloader, model, loss_fn)
         avg_training_loss = sum(training_loss) / len(training_loss)
-        #avg_validation_loss = sum(validation_loss) / len(validation_loss)
-        avg_validation_loss = []
+        avg_validation_loss = sum(validation_loss) / len(validation_loss)
 
         scheduler.step()
         print(scheduler.get_last_lr())
 
         print(f"Train Error: \n Avg Train loss: {avg_training_loss:.6f} \n")
-        #print(f"Test Error: \n Avg loss: {avg_validation_loss:.6f} \n")
+        print(f"Test Error: \n Avg loss: {avg_validation_loss:.6f} \n")
         epoch_training_loss.append(avg_training_loss)
         epoch_validation_loss.append(avg_validation_loss)
 
         if t % 5 == 0:
-            torch.save(model.state_dict(), f"model_weights/big_hexbug_heatmap_tracker_v2_v{t}.pth")
+            torch.save(model.state_dict(), f"model_weights/bigger_heatmap_tracker_v{t}.pth")
 
     return epoch_training_loss, epoch_validation_loss
 
 
 def print_losscurve(training_losses, validation_losses, kfolds, save_path):
     plt.plot(training_losses, marker='o', label="Train Loss", color='red')
-    plt.plot(validation_losses, marker='o', label="Validation Loss", color='blue')
+    # plt.plot(validation_losses, marker='o', label="Validation Loss", color='blue')
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title(f"Average Loss per Epoch for {kfolds} folds")
@@ -142,9 +144,7 @@ def print_losscurve(training_losses, validation_losses, kfolds, save_path):
 
 def main():
     torch.cuda.empty_cache()
-    model = BigHexbugHeatmapTracker_v2().to(device)
-    #model.load_state_dict(torch.load("./model_weights/big_hexbug_heatmap_tracker_v40.pth"))
-    # model.apply(init_weights_alexnet)
+    model = BiggerHeatmapTracker().to(device)
     learning_rate = 0.001
     loss_fn = nn.MSELoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -154,7 +154,7 @@ def main():
     )
 
     transform = augmentations.JointCompose([augmentations.JointStretch(0.33, 0.1),
-                                            augmentations.ResizeImagePositions((384, 384)),
+                                            augmentations.ResizeImagePositions((512, 512)),
                                             # augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointRandomFlip(0.5, 0.5),
                                             augmentations.JointRotation(180.0),
@@ -170,14 +170,14 @@ def main():
     # lable_path = os.path.join(tmpdir, "training")
     # data_path = os.path.join(tmpdir, "training")
 
-    dataset = HeatmapDataset("../training", "../training", transform=transform)
+    dataset = HeatmapTrackingDataset("../training", "../training", transform=transform)
     dataset = Subset(dataset, range(200))
 
     kfolds = 1
     epochs = 2
 
-    model_save_path = f"./model_weights/big_hexbug_heatmap_tracker_v2_folds{kfolds}_v{epochs}.pth"
-    loss_save_path = f"./plots/big_heatmap_tracking_v2_loss_folds{kfolds}_v{epochs}.png"
+    model_save_path = f"./model_weights/bigger_heatmap_tracker_folds{kfolds}_v{epochs}.pth"
+    loss_save_path = f"./plots/bigger_heatmap_tracker_folds{kfolds}_v{epochs}_loss.png"
 
     Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path)
 

@@ -323,7 +323,7 @@ if __name__ == "__main__":
     # parser.add_argument("--log", help="log the score", action="store_true")
     # args = parser.parse_args()
     path_pred = "ConvNet/predictions/test016_prediction.csv"
-    path_test = "ConvNet/final_tests/test016.csv"
+    path_test = "final_tests/test016.csv"
     #teams = ["BugHunters","HacksBug","HexagonHackers","HexTrackers","JustAJoke","PitchCrawlers","StrafeSnipers"]
     #run_on_folder("HexagonHackers")
 

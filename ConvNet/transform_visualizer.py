@@ -1,9 +1,9 @@
-import numpy as np
 import cv2
+import numpy as np
 import pandas as pd
 import torch
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
+
 import traco.ConvNet.augmentations as augmentations
 from traco.ConvNet.helper import get_image_size, denormalize_positions, generate_heatmap
 
@@ -12,18 +12,18 @@ label_path = "../leaderboard_data/test001.csv"
 cap = cv2.VideoCapture(video_path)
 labels = pd.read_csv(label_path)
 
-# Beispiel-Transformationskette
 transform = augmentations.JointCompose([augmentations.JointStretch(0.33, 0.1),
-                                            augmentations.ResizeImagePositions((512, 512)),
-                                            #augmentations.JointWrapper(transforms.ToTensor()),
-                                            augmentations.JointRandomFlip(0.5, 0.5),
+                                        augmentations.ResizeImagePositions((512, 512)),
+                                        # augmentations.JointWrapper(transforms.ToTensor()),
+                                        augmentations.JointRandomFlip(0.5, 0.5),
                                         augmentations.JointRotation(180.0),
-                                            augmentations.JointWrapper(transforms.ToTensor()),
-                                            augmentations.JointWrapper(
-                                                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
-                                            augmentations.JointWrapper(
-                                                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])),
-    ])
+                                        augmentations.JointWrapper(transforms.ToTensor()),
+                                        augmentations.JointWrapper(
+                                            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2,
+                                                                   hue=0.02)),
+                                        augmentations.JointWrapper(
+                                            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])),
+                                        ])
 
 paused = False
 frame_idx = 0
@@ -38,13 +38,12 @@ while True:
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         label_positions = labels[labels["t"] == frame_idx][["x", "y"]].values
 
-        # Transform anwenden
+        # transforms
         frame_rgb, label_positions = transform(frame_rgb, label_positions)
         height, width = get_image_size(frame_rgb)
         heatmap = generate_heatmap(get_image_size(frame_rgb), label_positions)
         label_positions = denormalize_positions(label_positions, (height, width), (256, 256))
 
-        # Zurück zu NumPy und RGB -> BGR für OpenCV-Anzeige
         if isinstance(frame_rgb, torch.Tensor):
             frame_rgb = frame_rgb.permute(1, 2, 0).numpy()
         frame_bgr = cv2.cvtColor(np.array(frame_rgb), cv2.COLOR_RGB2BGR)

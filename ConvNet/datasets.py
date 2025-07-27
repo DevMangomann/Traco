@@ -9,7 +9,7 @@ from torchvision.transforms import transforms
 import traco.ConvNet.helper as helper
 
 
-class VideoTrackingDataset(Dataset):
+class HexbugTrackingDataset(Dataset):
     def __init__(self, lables_dir, video_dir, transform=None):
         self.lables_dir = lables_dir
         self.video_dir = video_dir
@@ -55,7 +55,7 @@ class VideoTrackingDataset(Dataset):
         return frame, frame_labels, num_bugs
 
 
-class VideoPredictingDataset(Dataset):
+class HexbugCountingDataset(Dataset):
     def __init__(self, lables_dir, video_dir, transform=None):
         self.lables_dir = lables_dir
         self.video_dir = video_dir
@@ -96,12 +96,11 @@ class VideoPredictingDataset(Dataset):
         return frame, torch.tensor(label, dtype=torch.long)
 
 
-class HeatmapDataset(Dataset):
-    def __init__(self, lables_dir, video_dir, resize=(256, 256), transform=None):
+class HeatmapTrackingDataset(Dataset):
+    def __init__(self, lables_dir, video_dir, transform=None):
         self.lables_dir = lables_dir
         self.video_dir = video_dir
         self.transform = transform
-        self.resize = resize
 
         self.data = []
         for video_file in os.listdir(self.video_dir):

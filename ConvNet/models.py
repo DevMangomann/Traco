@@ -8,26 +8,28 @@ class HexbugTracker(nn.Module):
         super().__init__()
         self.max_bugs = max_bugs
         self.conv = nn.Sequential(
-            nn.Conv2d(3, 96, 11, padding=5, stride=2),
+            nn.Conv2d(3, 96, 11, padding=5, stride=4),
             nn.ReLU(),
-            nn.MaxPool2d((2, 2)),
-            nn.Conv2d(96, 128, 5, padding=2, stride=2),
+            nn.MaxPool2d(3, 2, 1),
+            nn.Conv2d(96, 256, 5, padding=2, stride=1),
             nn.ReLU(),
-            nn.BatchNorm2d(128),
-            nn.MaxPool2d((2, 2)),
-            nn.Conv2d(128, 256, 3, padding=1),
+            nn.MaxPool2d(3, 2, 1),
+            nn.Conv2d(256, 384, 3, padding=0, stride=1),
             nn.ReLU(),
-            nn.MaxPool2d((2, 2)),
-            nn.Conv2d(256, 256, 3, padding=1),
+            nn.Conv2d(384, 384, 3, padding=0, stride=1),
             nn.ReLU(),
-            nn.Conv2d(256, 256, 3, padding=1),
-            nn.AdaptiveAvgPool2d((2, 2)),
+            nn.Conv2d(384, 256, 3, padding=0, stride=1),
+            nn.MaxPool2d(3, 2, 1),
+            nn.Flatten()
         )
         self.fc = nn.Sequential(
-            nn.Linear(256 * 2 * 2 + 1, 256),
+            nn.Linear(256 * 5 * 5 + 1, 1024),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(256, 2 * max_bugs),
+            nn.Linear(1024, 1024),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(1024, 2 * max_bugs),
             nn.Tanh()
         )
 
@@ -41,55 +43,39 @@ class HexbugTracker(nn.Module):
         return x
 
 
-class HexbugPredictor(nn.Module):
+class HexbugCounter(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(3, 64, 3, padding=1, stride=1),
+            nn.Conv2d(3, 96, 11, padding=5, stride=4),
             nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.Conv2d(64, 64, 3, padding=1, stride=1),
+            nn.MaxPool2d(3, 2, 1),
+            nn.Conv2d(96, 256, 5, padding=2, stride=1),
             nn.ReLU(),
-            nn.BatchNorm2d(64),
-            nn.MaxPool2d((2, 2), stride=2),
-            nn.Conv2d(64, 128, 3, padding=1, stride=1),
+            nn.MaxPool2d(3, 2, 1),
+            nn.Conv2d(256, 384, 3, padding=0, stride=1),
             nn.ReLU(),
-            nn.BatchNorm2d(128),
-            nn.Conv2d(128, 128, 3, padding=1, stride=1),
+            nn.Conv2d(384, 384, 3, padding=0, stride=1),
             nn.ReLU(),
-            nn.BatchNorm2d(128),
-            nn.MaxPool2d((2, 2), stride=2),
-            nn.Conv2d(128, 256, 3, padding=1, stride=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(256),
-            nn.Conv2d(256, 256, 3, padding=1, stride=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(256),
-            nn.MaxPool2d((2, 2), stride=2),
-            nn.Conv2d(256, 512, 3, padding=1, stride=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(512),
-            nn.Conv2d(512, 512, 3, padding=1, stride=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(512),
-            nn.Conv2d(512, 512, 3, padding=1, stride=1),
-            nn.ReLU(),
-            nn.BatchNorm2d(512),
-            nn.AdaptiveAvgPool2d((1, 1))
+            nn.Conv2d(384, 256, 3, padding=0, stride=1),
+            nn.MaxPool2d(3, 2, 1),
+            nn.Flatten()
         )
         self.fc = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(512 * 1 * 1, 512),
+            nn.Linear(256 * 5 * 5 + 1, 1024),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(512, 12)
+            nn.Linear(1024, 1024),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(1024, 12)
         )
 
     def forward(self, x):
         return self.fc(self.conv(x))
 
 
-class HexbugHeatmapTracker(nn.Module):
+class HeatmapTracker(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv = nn.Sequential(
@@ -147,7 +133,7 @@ class HexbugHeatmapTracker(nn.Module):
         return self.final_conv(x)
 
 
-class BigHexbugHeatmapTracker(nn.Module):
+class BigHeatmapTracker(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv = nn.Sequential(
@@ -216,7 +202,7 @@ class BigHexbugHeatmapTracker(nn.Module):
         return self.final_conv(x)
 
 
-class BigHexbugHeatmapTracker_v2(nn.Module):
+class BiggerHeatmapTracker(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv = nn.Sequential(

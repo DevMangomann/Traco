@@ -7,19 +7,19 @@ from PIL import Image
 from matplotlib import pyplot as plt
 
 from traco.ConvNet import helper
-from traco.ConvNet.models import HexbugHeatmapTracker, BigHexbugHeatmapTracker, BigHexbugHeatmapTracker_v2
+from traco.ConvNet.models import HeatmapTracker, BigHeatmapTracker, BiggerHeatmapTracker
 
 matplotlib.use('TkAgg')
-plt.ion()  # Interaktiver Modus
+plt.ion()
 
-video_path = "./final_tests/test016.mp4"
+video_path = "../final_tests/test001.mp4"
 num_bugs = 3
 cap = cv2.VideoCapture(video_path)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-tracking_model = BigHexbugHeatmapTracker_v2()
+tracking_model = BiggerHeatmapTracker()
 tracking_model.load_state_dict(
-    torch.load("model_weights/big_hexbug_heatmap_tracker_v2_folds1_v80.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/bigger_heatmap_tracker_v80.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
 resize = (512, 512)
@@ -30,7 +30,6 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
-# Initiale Visualisierung vorbereiten
 fig, axs = plt.subplots(1, 3, figsize=(15, 5))
 img1 = axs[0].imshow(np.zeros((512, 512, 3)))
 axs[0].set_title("Frame (resized)")
@@ -79,17 +78,17 @@ while plt.fignum_exists(fig.number):
         heatmap_np = heatmap.cpu().numpy()
         heatmap_vis = (heatmap_np - heatmap_np.min()) / (heatmap_np.max() - heatmap_np.min() + 1e-8)
 
-        # Bild vorbereiten
+        # prepare image
         image_np = np.asarray(image) / 255.0
         predict_image_vis = transform(image).cpu().numpy()
         predict_image_vis = np.transpose(predict_image_vis, (1, 2, 0))  # [H, W, C]
+        predict_image_vis = predict_image_vis * 0.5 + 0.5
 
-        # Update der Plots
+        # update plots
         img1.set_data(predict_image_vis)
         img2.set_data(heatmap_np)
         img3.set_data(image_np)
 
-        # Scatterpunkte aktualisieren
         scatter.remove()
         scatter = axs[2].scatter(coords[:, 0], coords[:, 1], c="cyan", s=40, marker="x", label="Peaks")
 

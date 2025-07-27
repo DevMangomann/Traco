@@ -73,15 +73,15 @@ class KalmanMultiObjectTracker:
             track.predict()
 
         if len(detections) == 0:
-            # Keine Detections: alle Tracks altern lassen
+            # No tracks -> everything mark missing
             for track in self.tracks:
                 track.time_since_update += 1
 
-            # Alte Tracks entfernen
+            # delete older tracks
             self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_age]
 
         elif len(self.tracks) == 0:
-            # Wenn keine bestehenden Tracks vorhanden sind, neue erstellen
+            # first frame tracks
             for det in detections:
                 color = average_color_around(det, frame, 10)
                 self.tracks.append(Track(self.next_id, det, color))
@@ -90,7 +90,7 @@ class KalmanMultiObjectTracker:
         else:
             last_dets = np.array([t.last_detection for t in self.tracks])
 
-            # Step 2: Compute cost matrix
+            # Compute cost matrix over distance and color
             detect_matrix = torch.cdist(
                 torch.tensor(last_dets, dtype=torch.float32),
                 torch.tensor(detections, dtype=torch.float32)
@@ -106,7 +106,7 @@ class KalmanMultiObjectTracker:
 
             combined_matrix = detect_matrix + 0.3 * color_matrix
 
-            # Step 3: Hungarian matching
+            # Hungarian matching
             row_detect, col_detect = linear_sum_assignment(combined_matrix)
 
             assigned_tracks = set()
@@ -118,15 +118,15 @@ class KalmanMultiObjectTracker:
                     assigned_tracks.add(i)
                     assigned_detections.add(j)
 
-            # Step 5: Unmatched tracks
+            # Unmatched tracks
             for i, track in enumerate(self.tracks):
                 if i not in assigned_tracks:
                     track.time_since_update += 1
 
-            # Step 6: Remove dead tracks
+            # Remove dead tracks
             self.tracks = [t for t in self.tracks if t.time_since_update <= self.max_age]
 
-            # Step 7: Create new tracks for unmatched detections
+            # Create new tracks for unmatched detections
             if len(self.tracks) < self.max_bugs:
                 for i, det in enumerate(detections):
                     if i not in assigned_detections:
@@ -134,7 +134,7 @@ class KalmanMultiObjectTracker:
                         self.tracks.append(Track(self.next_id, det, color))
                         self.next_id += 1
 
-        # Step 8: Prepare output
+        # Prepare output with kalman as fallback
         results = []
         for t in self.tracks:
             if t.time_since_update == 0 and t.last_detection is not None:

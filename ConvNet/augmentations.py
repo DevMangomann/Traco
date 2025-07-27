@@ -1,8 +1,12 @@
 import math
+import random
 
 import PIL
 import numpy as np
+import torch
+import torchvision.transforms as transforms
 import torchvision.transforms.functional as tf
+from PIL import Image
 
 from traco.ConvNet.helper import get_image_size, normalize_positions
 
@@ -60,12 +64,6 @@ class JointRotation:
         rotated_positions = label_positions @ rot_mat  # Matrixmultiplikation
 
         return image, rotated_positions
-
-
-import random
-import torch
-import torchvision.transforms as transforms
-from PIL import Image
 
 
 class JointStretch:
