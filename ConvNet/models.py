@@ -62,7 +62,7 @@ class HexbugCounter(nn.Module):
             nn.Flatten()
         )
         self.fc = nn.Sequential(
-            nn.Linear(256 * 5 * 5 + 1, 1024),
+            nn.Linear(256 * 5 * 5, 1024),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(1024, 1024),

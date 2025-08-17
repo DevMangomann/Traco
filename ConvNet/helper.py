@@ -54,7 +54,7 @@ def coords_from_heatmap(heatmap, num_bugs, original_size):
     )
 
     if len(coordinates) < num_bugs:
-        print(f"[Warning] Found only {len(coordinates)}/{num_bugs.item()} local max peaks. Looking for more manually.")
+        print(f"[Warning] Found only {len(coordinates)}/{num_bugs} local max peaks. Looking for more manually.")
 
         def is_far_enough(new_coord, existing_coords, min_dist=20):
             if len(existing_coords) == 0:

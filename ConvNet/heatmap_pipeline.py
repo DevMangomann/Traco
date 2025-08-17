@@ -14,7 +14,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 tracking_model = BiggerHeatmapTracker()
 tracking_model.load_state_dict(
-    torch.load("model_weights/bigger_heatmap_tracker_v80.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/bigger_heatmap_tracker_v80_final.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 tracking_model = tracking_model.to(device)
 

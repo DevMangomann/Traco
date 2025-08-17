@@ -22,7 +22,7 @@ transform = augmentations.JointCompose([augmentations.ResizeImagePositions(targe
                                         ])
 
 model = BiggerHeatmapTracker()
-model.load_state_dict(torch.load("model_weights/bigger_heatmap_tracker_v80.pth"))
+model.load_state_dict(torch.load("model_weights/bigger_heatmap_tracker_v80_final.pth"))
 model.eval()
 
 dataset = HeatmapTrackingDataset("../training", "../training", transform=transform)
@@ -39,7 +39,7 @@ for i, (frame, heatmap) in enumerate(dataloader):
     if isinstance(pred_heat, torch.Tensor):
         pred_heat = pred_heat.detach().cpu().numpy()
     pred_heat = gaussian_filter(pred_heat, sigma=1)
-    coords = helper.coords_from_heatmap(pred_heat, 3, (256, 256))
+    coords = helper.coords_from_heatmap(pred_heat, 3, target_size)
     print(coords)
 
     image_np = image.permute(1, 2, 0).numpy()

@@ -46,22 +46,22 @@ class JointRotation:
         self.degrees = degrees
 
     def __call__(self, image, label_positions):
-        # Zufälligen Drehwinkel wählen
+        # Choose random rotation angle
         height, width = get_image_size(image)
         rotate_degrees = random.uniform(-self.degrees, self.degrees)
         rotate_rad = math.radians(rotate_degrees)
 
-        # Bild rotieren um das Zentrum
+        # rotate image around center
         image = tf.rotate(image, angle=rotate_degrees, center=[width / 2, height / 2])
 
-        # Punkte rotieren (Koordinaten im Bereich [-1, 1], also Ursprung = Bildzentrum)
+        # rotation matrix for groundtruth coordinates
         cos_r = math.cos(rotate_rad)
         sin_r = math.sin(rotate_rad)
         rot_mat = np.array([
             [cos_r, -sin_r],
             [sin_r, cos_r]
         ])
-        rotated_positions = label_positions @ rot_mat  # Matrixmultiplikation
+        rotated_positions = label_positions @ rot_mat  # matrixmultiplication
 
         return image, rotated_positions
 

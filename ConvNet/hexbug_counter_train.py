@@ -16,7 +16,7 @@ from traco.ConvNet.models import HexbugCounter
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-batch_size = 64
+batch_size = 32
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
@@ -34,7 +34,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 10 == 0:
+        if batch % 100 == 0:
             print(f"Output: {pred[0]}  Label: {y[0]}")
             loss, current = loss.item(), batch * batch_size + len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
@@ -71,9 +71,9 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler
         train_size = int(0.8 * len(dataset))
         val_size = len(dataset) - train_size
         train_set, val_set = random_split(dataset, [train_size, val_size])
-        train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True,
+        train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                                       prefetch_factor=4, persistent_workers=True)
-        val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True,
+        val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True,
                                     prefetch_factor=4, persistent_workers=True)
 
         epoch_training_loss, epoch_validation_loss, epoch_accuracy = epoch_training(epochs, train_dataloader,
@@ -166,13 +166,13 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer,
-        milestones=[40, 60],
+        milestones=[30, 50],
         gamma=0.1
     )
 
     transform = transforms.Compose([transforms.ToPILImage(), transforms.Resize((256, 256)), transforms.ToTensor(),
                                     transforms.RandomHorizontalFlip(0.5), transforms.RandomVerticalFlip(0.5),
-                                    transforms.RandomRotation(90),
+                                    transforms.RandomRotation(180),
                                     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02),
                                     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
@@ -184,7 +184,7 @@ def main():
     # dataset = Subset(dataset, range(2000))
 
     kfolds = 1
-    epochs = 80
+    epochs = 70
 
     model_save_path = f"./model_weights/hexbug_counter_folds{kfolds}_v{epochs}.pth"
     loss_save_path = f"./plots/hexbug_counter_{kfolds}_v{epochs}_loss.png"

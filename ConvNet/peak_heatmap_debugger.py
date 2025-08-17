@@ -19,7 +19,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 tracking_model = BiggerHeatmapTracker()
 tracking_model.load_state_dict(
-    torch.load("model_weights/bigger_heatmap_tracker_v80.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/bigger_heatmap_tracker_v80_final.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
 resize = (512, 512)
@@ -49,12 +49,7 @@ paused = False
 frame_idx = 0
 
 
-def on_key(event):
-    global paused
-    if event.key == ' ':
-        paused = not paused
-    elif event.key == 'q':
-        plt.close()
+
 
 
 fig.canvas.mpl_connect('key_press_event', on_key)

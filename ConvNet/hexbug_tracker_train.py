@@ -1,19 +1,16 @@
-import os
-
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from scipy.optimize import linear_sum_assignment
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from torch.utils.data import Subset
 from torchvision.transforms import transforms
 
 import augmentations
-import helper
-from traco.ConvNet.models import HexbugTracker
 from traco.ConvNet.datasets import HexbugTrackingDataset
+from traco.ConvNet.models import HexbugTracker
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -52,16 +49,19 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     training_loss = []
     size = len(dataloader.dataset)
     model.train()
+
     for batch, (frame, positions, num_bugs) in enumerate(dataloader):
-        frame, num_bugs = frame.to(device), num_bugs.to(device)
-        pred = model(num_bugs, frame).squeeze()
+        frame, positions, num_bugs = frame.to(device), positions.to(device), num_bugs.to(device)
+        pred = model(num_bugs, frame).squeeze()  # [B, 11, 2]
 
         batch_loss = torch.tensor(0.0, device=device)
         for i in range(frame.shape[0]):
-            prediction = pred[i]
-            target = positions[i].to(device)
-            prediction, target = match_predictions_to_targets(prediction, target)
-            batch_loss += loss_fn(prediction, target)
+            n_bugs = num_bugs[i]
+            pred_i = pred[i, :n_bugs]
+            target_i = positions[i, :n_bugs]
+
+            matched_pred, matched_target = match_predictions_to_targets(pred_i, target_i)
+            batch_loss += loss_fn(matched_pred, matched_target)
 
         batch_loss /= frame.shape[0]
         training_loss.append(batch_loss.item())
@@ -71,7 +71,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.zero_grad()
 
         if batch % 1 == 0:
-            print(f"loss: {batch_loss.item():>7f}  [{batch * batch_size + len(frame):>5d}/{size:>5d}]")
+            print(f"loss: {batch_loss.item():>7f}  [{batch * frame.shape[0]:>5d}/{size:>5d}]")
 
     return training_loss
 
@@ -81,32 +81,33 @@ def test_loop(dataloader, model, loss_fn):
     test_loss = []
 
     with torch.no_grad():
-        for (frame, positions, num_bugs) in dataloader:
-            frame, num_bugs = frame.to(device), num_bugs.to(device)
+        for frame, positions, num_bugs in dataloader:
+            frame, positions, num_bugs = frame.to(device), positions.to(device), num_bugs.to(device)
             pred = model(num_bugs, frame).squeeze()
 
             batch_loss = torch.tensor(0.0, device=device)
             for i in range(frame.shape[0]):
-                prediction = pred[i]
-                target = positions[i].to(device)
-                prediction, target = match_predictions_to_targets(prediction, target)
-                batch_loss += loss_fn(prediction, target)
+                n_bugs = num_bugs[i]
+                pred_i = pred[i, :n_bugs]
+                target_i = positions[i, :n_bugs]
+
+                matched_pred, matched_target = match_predictions_to_targets(pred_i, target_i)
+                batch_loss += loss_fn(matched_pred, matched_target)
 
             batch_loss /= frame.shape[0]
             test_loss.append(batch_loss.item())
 
     return test_loss
 
-
 def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler, model_save_path, loss_save_path):
     if kfolds == 1:
         train_size = int(0.8 * len(dataset))
-        train_set = Subset(dataset, range(train_size))
-        val_set = Subset(dataset, range(train_size, len(dataset)))
+        val_size = len(dataset) - train_size
+        train_set, val_set = random_split(dataset, [train_size, val_size])
         train_dataloader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True,
-                                      prefetch_factor=4)
+                                      prefetch_factor=2)
         val_dataloader = DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True,
-                                    prefetch_factor=4)
+                                    prefetch_factor=2)
 
         epoch_training_loss, epoch_validation_loss = epoch_training(epochs, train_dataloader, val_dataloader, model,
                                                                     loss_fn, optimizer, scheduler)
@@ -129,7 +130,8 @@ def Kfold_training(kfolds, epochs, dataset, model, loss_fn, optimizer, scheduler
             train_dataloader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=4,
                                           pin_memory=True,
                                           prefetch_factor=4)
-            val_dataloader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True,
+            val_dataloader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, num_workers=4,
+                                        pin_memory=True,
                                         prefetch_factor=4)
 
             epoch_training_loss, epoch_validation_loss = epoch_training(epochs, train_dataloader, val_dataloader, model,
@@ -195,22 +197,25 @@ def main():
         gamma=0.1
     )
 
-    transform = augmentations.JointCompose([augmentations.ResizeImagePositions((256, 256)),
-                                            #augmentations.JointWrapper(transforms.ToTensor()),
+    transform = augmentations.JointCompose([augmentations.JointStretch(0.33, 0.1),
+                                            augmentations.ResizeImagePositions((256, 256)),
+                                            # augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointRandomFlip(0.5, 0.5),
+                                            augmentations.JointRotation(180.0),
                                             augmentations.JointWrapper(transforms.ToTensor()),
                                             augmentations.JointWrapper(
-                                                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02)),
+                                                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2,
+                                                                       hue=0.02)),
                                             augmentations.JointWrapper(
                                                 transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])),
-    ])
+                                            ])
 
     # tmpdir = os.environ.get("TMPDIR", "/tmp")  # fallback zu /tmp für lokale Tests
     # lable_path = os.path.join(tmpdir, "training")
     # data_path = os.path.join(tmpdir, "training")
 
-    dataset = HexbugTrackingDataset("../training", "../Background_training", transform=transform)
-    #dataset = Subset(dataset, range(500))
+    dataset = HexbugTrackingDataset("../training", "../training", transform=transform)
+    # dataset = Subset(dataset, range(500))
 
     kfolds = 1
     epochs = 70

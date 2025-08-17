@@ -50,9 +50,12 @@ class HexbugTrackingDataset(Dataset):
 
         frame_labels = frame_labels.clone().detach() if isinstance(frame_labels, torch.Tensor) else torch.tensor(
             frame_labels)
-        num_bugs = torch.tensor(frame_labels.shape[0], dtype=torch.float32)
+        num_bugs = torch.tensor(frame_labels.shape[0], dtype=torch.int64)
 
-        return frame, frame_labels, num_bugs
+        padded_positions = torch.full((11, 2), fill_value=-1.0)
+        padded_positions[:num_bugs.item()] = frame_labels
+
+        return frame, padded_positions, num_bugs
 
 
 class HexbugCountingDataset(Dataset):

@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from collections import defaultdict
 
-csv_path = "../leaderboard_data/test001.csv"
+csv_path = "../training/training07.csv"
 num_bugs = 3
 video_path = csv_path.replace("csv", "mp4")
 
@@ -36,49 +36,56 @@ bug_trails = defaultdict(list)
 
 frame_id = 0
 scale = 0.5
-
+max_trail_length = 10
 trail_thickness = 2
 circle_radius = 10
 
 trail_image = None
 
+paused = False
+
 while True:
-    ret, frame = cap.read()
-    if not ret:
+    if not paused or key == ord('d') or key == 83:  # Pfeil rechts oder 'd'
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        if trail_image is None:
+            trail_image = np.zeros_like(frame)
+
+        if frame_id in frame_data:
+            for hexbug_id, (x, y) in frame_data[frame_id].items():
+                bug_trails[hexbug_id].append((x, y))
+                if len(bug_trails[hexbug_id]) > max_trail_length:
+                    bug_trails[hexbug_id].pop(0)
+
+                color = colors[hexbug_id]
+                for i in range(1, len(bug_trails[hexbug_id])):
+                    pt1 = bug_trails[hexbug_id][i - 1]
+                    pt2 = bug_trails[hexbug_id][i]
+                    cv2.line(frame, pt1, pt2, color, thickness=2)
+
+                cv2.circle(frame, (x, y), radius=circle_radius, color=color, thickness=-1)
+                cv2.putText(frame, f"Bug {hexbug_id}", (x + 10, y - 10),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1.0, color=color, thickness=2)
+
+        frame_with_trail = cv2.addWeighted(frame, 1.0, trail_image, 1.0, 0)
+        resized_frame = cv2.resize(frame_with_trail, None, fx=scale, fy=scale)
+        cv2.imshow(video_path, resized_frame)
+
+        frame_id += 1
+
+    key = cv2.waitKey(0 if paused else 60)
+
+    if key == 27:  # ESC
         break
-
-    if trail_image is None:
-        trail_image = np.zeros_like(frame)
-
-    max_trail_length = 10
-
-    if frame_id in frame_data:
-        for hexbug_id, (x, y) in frame_data[frame_id].items():
-            bug_trails[hexbug_id].append((x, y))
-            if len(bug_trails[hexbug_id]) > max_trail_length:
-                bug_trails[hexbug_id].pop(0)
-
-            color = colors[hexbug_id]
-            for i in range(1, len(bug_trails[hexbug_id])):
-                pt1 = bug_trails[hexbug_id][i - 1]
-                pt2 = bug_trails[hexbug_id][i]
-                cv2.line(frame, pt1, pt2, color, thickness=2)
-
-            cv2.circle(frame, (x, y), radius=circle_radius, color=color, thickness=-1)
-            cv2.putText(frame, f"Bug {hexbug_id}", (x + 10, y - 10),
-                        fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1.0, color=color, thickness=2)
-
-    frame_with_trail = cv2.addWeighted(frame, 1.0, trail_image, 1.0, 0)
-
-    resized_frame = cv2.resize(frame_with_trail, None, fx=scale, fy=scale)
-
-    cv2.imshow(video_path, resized_frame)
-
-    key = cv2.waitKey(60)
-    if key == 27:
-        break
-
-    frame_id += 1
+    elif key == 32:  # Leertaste
+        paused = not paused
+    elif paused and (key == 83 or key == ord('d')):  # Pfeil rechts oder 'd' für nächsten Frame
+        continue
+    elif paused and (key == 81 or key == ord('a')):  # Pfeil links oder 'a' für vorherigen Frame
+        frame_id = max(frame_id - 2, 0)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_id)
 
 cap.release()
 cv2.destroyAllWindows()
