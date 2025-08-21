@@ -14,13 +14,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 tracking_model = BiggerHeatmapTracker()
 tracking_model.load_state_dict(
-    torch.load("model_weights/bigger_heatmap_tracker_v80_final.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/heatmap_tracker_v80_training.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 tracking_model = tracking_model.to(device)
 
 # transforms for input
 transform = transforms.Compose([
-    transforms.Resize((512, 512)),
+    transforms.Resize((256, 256)),
     # transforms.Resize((256, 256)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),

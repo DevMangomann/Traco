@@ -11,11 +11,11 @@ from traco.ConvNet.helper import denormalize_positions
 from traco.ConvNet.models import HexbugCounter, HexbugTracker
 
 counting_model = HexbugCounter()
-counting_model.load_state_dict(torch.load("model_weights/hexbug_predictor_folds1_v20.pth", weights_only=True))
+counting_model.load_state_dict(torch.load("model_weights/hexbug_counter_v70_training.pth", weights_only=True))
 counting_model.eval()  # Setze das Modell in den Evaluierungsmodus
 
 tracking_model = HexbugTracker()
-tracking_model.load_state_dict(torch.load("model_weights/hexbug_tracker_background_v60.pth", weights_only=True))
+tracking_model.load_state_dict(torch.load("model_weights/hexbug_tracker_70_training.pth", weights_only=True))
 tracking_model.eval()
 
 target_size = (256, 256)
@@ -26,7 +26,7 @@ test_transform = transforms.Compose([
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
-video_path = "../training/training02.mp4"
+video_path = "../training/training07.mp4"
 
 cap = cv2.VideoCapture(video_path)
 

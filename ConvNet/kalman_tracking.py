@@ -52,7 +52,7 @@ class Track:
     def update(self, pos, frame):
         self.kf.update(pos)
         self.last_detection = pos
-        self.color = average_color_around(pos, frame, 2)
+        self.color = average_color_around(pos, frame, 10)
         self.time_since_update = 0
 
 

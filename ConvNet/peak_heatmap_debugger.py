@@ -12,14 +12,14 @@ from traco.ConvNet.models import HeatmapTracker, BigHeatmapTracker, BiggerHeatma
 matplotlib.use('TkAgg')
 plt.ion()
 
-video_path = "../final_tests/test001.mp4"
-num_bugs = 3
+video_path = "../final_tests/test003.mp4"
+num_bugs = 4
 cap = cv2.VideoCapture(video_path)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 tracking_model = BiggerHeatmapTracker()
 tracking_model.load_state_dict(
-    torch.load("model_weights/bigger_heatmap_tracker_v80_final.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/bigger_heatmap_tracker_v80_training.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 
 resize = (512, 512)
@@ -49,6 +49,11 @@ paused = False
 frame_idx = 0
 
 
+def on_key(event):
+    global paused
+    if event.key == " " or event.key == "space":
+        paused = not paused
+        print("Paused:", paused)
 
 
 
