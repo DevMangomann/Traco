@@ -14,21 +14,21 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 tracking_model = BiggerHeatmapTracker()
 tracking_model.load_state_dict(
-    torch.load("model_weights/heatmap_tracker_v80_training.pth", weights_only=True, map_location=device))
+    torch.load("model_weights/bigger_heatmap_tracker_v80_final.pth", weights_only=True, map_location=device))
 tracking_model.eval()
 tracking_model = tracking_model.to(device)
 
 # transforms for input
 transform = transforms.Compose([
-    transforms.Resize((256, 256)),
-    # transforms.Resize((256, 256)),
+    transforms.Resize((512, 512)),
+    #transforms.Resize((256, 256)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
 # path to video and maximum number of hexbugs in video
-video_path = "../leaderboard_data/test001.mp4"
-max_bugs = 3
+video_path = "../leaderboard_data/test005.mp4"
+max_bugs = 2
 
 cap = cv2.VideoCapture(video_path)
 
@@ -59,7 +59,7 @@ while cap.isOpened():
     original_height, original_width = helper.get_image_size(frame)
     coords = helper.coords_from_heatmap(heatmap, max_bugs, (original_height, original_width))
 
-    hexbug_tracks = kalman_tracker.update(coords, np.array(frame))
+    hexbug_tracks = update_tracks(coords, frame_count)
     for hexbug in hexbug_tracks:
         hex_id, hex_coords = hexbug
         new_row = np.array(
@@ -81,6 +81,6 @@ df["hexbug"] = df["hexbug"].astype(int)
 # store predictions in csv
 video_name = video_path.split("/")[-1]
 video_name = video_name.split(".")[0]
-df.to_csv(f"./predictions/{video_name}_prediction.csv", index=False)
+df.to_csv(f"./predictions/{video_name}.csv", index=False)
 
-print(f"Predictions stored in /predictions/{video_name}_prediction.csv")
+print(f"Predictions stored in /predictions/{video_name}.csv")
